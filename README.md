@@ -12,7 +12,7 @@ Each game has its own directory in the repository that will contain the original
 
 The games that have been included in the repository so far are:
 
-- [Carnival](\games\Carnival\README.md)
+- [Carnival](/games/Carnival/README.md)
 
 ## Contributors
 
