@@ -13,6 +13,15 @@ Each game has its own directory in the repository that will contain the original
 The games that have been included in the repository so far are:
 
 - [Carnival](/games/Carnival/README.md)
+- [Centipede](/games/Centipede/README.md)
+- [Frenzy](/games/Frenzy/README.md)
+- [Mouse Trap](/games/Mouse-Trap/README.md)
+- [Mr DO!](/games/Mr-Do/README.md)
+- [Q\*bert Cubes](/games/QBert-Cubes/README.md)
+- [Slither](/games/Slither/README.md)
+- [Smurf Rescue In Gargamel's Castle](/games/Smurf-Rescue-In-Gargamels-Castle/README.md)
+- [Space Panic](/games/Space-Panic/README.md)
+- [Squish'em Featuring Same](/games/Squish-em-Featuring-Sam/README.md)
 
 ## Contributors
 

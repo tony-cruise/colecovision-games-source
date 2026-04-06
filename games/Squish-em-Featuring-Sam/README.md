@@ -1,4 +1,4 @@
-# Squish-em Featuring Same
+# Squish-em Featuring Sam
 
 He's on his way to the top of a 48 story building to collect a suitcase full of money. But the creepy Creatures are determined to knock him off the building before ho gets there. And falling objects make the climb even more difficult and dangerous. BUT SAM'S NOT LOST FOR WORDS. HE TALKS!
 
