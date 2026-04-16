@@ -29,3 +29,4 @@ The following people have contributed content to this repository:
 
 - Tony Cruise (Admin)
 - Captain Cozmos
+- Stephen Cameron (Kamshaft)
