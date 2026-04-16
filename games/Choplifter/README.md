@@ -1,0 +1,3 @@
+Choplifter! is a side-scrolling action/arcade game that puts you in command of an attack chopper. Your mission: Go behind enemy lines and rescue up to 16 hostages per level. Be careful, though, because tanks and enemy aircraft will try to stop you - and they won't stop shooting while you are rescuing those hostages!
+
+Compilable Disassembly by Kamshaft & Claude Code
