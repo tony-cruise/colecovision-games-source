@@ -1,127 +1,127 @@
 ; =============================================================================
-; MONTEZUMA'S REVENGE 1984 -- ColecoVision  (12 KB ROM, loads at $8000)
-; Disassembled by z80cv_disasm.py  |  Annotated with Claude Sonnet 4.6
-; Exact byte-match verified vs. montezuma-s-revenge-1984.rom
+; MONTEZUMA'S REVENGE (1984) ColecoVision disassembly
 ; =============================================================================
 ;
-; LEGEND / CROSS-REFERENCE INDEX
-; All line numbers refer to THIS file.  ROM addresses shown as ($XXXX).
+; LEGEND
 ;
-; --- HARDWARE / BIOS --------------------------------------------------------
-;   BIOS entry points:        lines  125- 174  (EQU block)
-;   I/O port defs:            lines  178- 184
-;   RAM defs:                 lines  188- 191
-;     WORK_BUFFER $7000  JOYSTICK_BUFFER $7005  CONTROLLER_BUFFER $702B  STACKTOP $73B9
+; --- ROM LAYOUT (12 KB: $8000-$AFFF) ---
 ;
-; --- ROM LAYOUT (12 KB: $8000-$AFFF) ----------------------------------------
-;   $8021  CART_ENTRY: JP NMI             line  217
-;   $8025  START -- boot entry            line  236
-;   ~$8DA2 LOC_8DA2 -- game state mach.  line  834
-;   ~$8EB0 DELAY_LOOP_8EB0 -- frame body line  915
-;   ~$AA00 NMI handler                   line 2587
-;   ~$AE00 SUB_AE00 -- VRAM data writer  line 3084
+;   $8021  CART_ENTRY: JP NMI             line   217
+;   $8025  START -- boot entry            line   236
+;   ~$8DA2 LOC_8DA2 -- game state mach.  line   834
+;   ~$8EB0 DELAY_LOOP_8EB0 -- frame body line   915
+;   ~$AA00 NMI handler                   line  2587
+;   ~$AE00 SUB_AE00 -- VRAM data writer  line  3084
 ;
-; --- BOOT / INIT SEQUENCE ($8025) -------------------------------------------
-;   START ($8025)             line  236  zero $7000-$73FF, SP=$73C0
-;                                         SUB_8413: FILL_VRAM $4000 (clear VRAM)
-;                                         MODE_1, LOAD_ASCII, INIT/WR_SPR_NM_TBL
-;                                         DELAY_LOOP_827F (x2): sprite bitmaps to RAM
-;                                         CALL SUB_AE00 ($01): bulk VRAM init
-;   SUB_8413 ($8413)          line  510  FILL_VRAM at $0000, length $4000
-;   DELAY_LOOP_827F ($827F)   line  426  copy 16 bitmap pairs (AND $AA55) to RAM
+; --- BOOT / INIT SEQUENCE ($8025) ---
 ;
-; --- NMI HANDLER (~$AA00) ---------------------------------------------------
-;   CART_ENTRY ($8021)        line  217  JP NMI (all interrupts -> NMI)
-;   NMI (~$AA00)              line 2587  saves ALL registers: AF,BC,DE,HL,IX,IY + alts
-;                                         $70B1 bit 7: re-entry guard (SET on entry)
-;                                         $70B1 bit 3: CALL NZ, SUB_919A (score update)
-;                                         $705F bit 1: skip game logic if set (pause)
-;                                         $705F bit 3: CALL NZ, SUB_A60B (room renderer)
-;                                         $70B1 bit 4: CALL NZ, DELAY_LOOP_8EB0 (frame)
-;                                         INC $7097, INC ($7047), $7011 sound cycle
-;                                         DEC $7207, WR_SPR_NM_TBL, SUB_AC6D
-;                                         READ_REGISTER, RES 7 ($70B1), RETN
+;   START ($8025)             line   236  zero $7000-$73FF, SP=$73C0
+;   SUB_8413 ($8413)          line   510  FILL_VRAM at $0000, length $4000
+;   DELAY_LOOP_827F ($827F)   line   426  copy 16 bitmap pairs to RAM
 ;
-; --- FRAME GAME BODY ($8EB0) ------------------------------------------------
-;   DELAY_LOOP_8EB0 ($8EB0)   line  915  per-frame body, called from NMI bit 4
-;     SUB_8308 ($8308)        line  461  render current room tiles to VRAM
-;     SUB_A540 ($93C0)        line 2255  tile collision: ladders/ropes/platforms
-;     SUB_908F ($908F)        line 1012  item pickup: CPIR $71B2 table (6 bytes)
-;     SUB_AE00 ($04)          line 3084  re-render room tiles if $705F bit 5 clear
+; --- NMI HANDLER (~$AA00) ---
 ;
-; --- GAME STATE / ROOM TRANSITIONS ($8DA2) ----------------------------------
-;   LOC_8DA2 ($8DA2)          line  834  game state dispatch ($7079)
-;     if $7079 != $08: SUB_AC1A ($05), LD $7079=$08, $70A9=$70, $7306=$D4
-;   SUB_8DC2 ($8DC2)          line  849  DEC $7049 (life counter)
-;   LOC_8DD3 ($8DD3)          line  858  update $7300/$7304 player tile X/Y by B/C
-;   LOC_929B ($929B)          line 1183  inner-loop end: JP LOC_8DA2
+;   CART_ENTRY ($8021)        line   217  JP NMI (all interrupts -> NMI)
+;   NMI (~$AA00)              line  2587  saves AF,BC,DE,HL,IX,IY + alts
+;                                         $70B1 bit 7: re-entry guard
+;                                         $70B1 bit 3: SUB_919A (score)
+;                                         $70B1 bit 4: DELAY_LOOP_8EB0 (frame)
+;                                         $705F bit 3: SUB_A60B (room render)
 ;
-; --- ROOM RENDERER / ENEMY PLACEMENT ($A60B) --------------------------------
-;   SUB_A60B ($A60B)          line 2311  room setup called from NMI (bit 3 of $705F)
-;                                          RES 3, VDP regs, FILL_VRAM $1800
-;                                          $70AC==1: fast path; else 25-enemy loop
-;   SUB_919A ($919A)          line 1061  SET bit 0 $7000, clear $707A/$7308 block
+; --- FRAME GAME BODY ($8EB0) ---
 ;
-; --- VRAM DATA WRITER -- SUB_AE00 ($AE00) -----------------------------------
-;   SUB_AE00 ($AE00)          line 3084  POP HL trick: return addr becomes data ptr
-;                                          block: C=page B=count E=addr-lo IY=stride
-;                                          CALL SUB_AE2E for each block
-;   SUB_AE2E ($AE2E)          line 3125  set VRAM write addr + CALL PUT_VRAM
-;   SUB_AE25 ($AE25)          line 3119  set VRAM write addr + CALL FILL_VRAM
-;   SUB_AEA7 ($AEA7)          line 3167  tile write loop (B iterations)
-;   SUB_A8B7 ($A8B7)          line 2462  VRAM-lock enter: SET $705F bit 1 + INC $70AF
-;   SUB_A8C3 ($A8C3)          line 2471  VRAM-lock exit:  DEC $70AF, RES if zero
+;   DELAY_LOOP_8EB0 ($8EB0)   line   915  per-frame body (from NMI bit 4)
+;   SUB_8308 ($8308)          line   461  render room tiles to VRAM
+;   SUB_A540 ($93C0)          line  2255  tile collision (ladders/ropes/platforms)
+;   SUB_908F ($908F)          line  1012  item pickup: CPIR $71B2 table
 ;
-; --- SOUND SYSTEM -----------------------------------------------------------
-;   SOUND_WRITE_A067 ($A067)  line 1661  load channel data: fill $7086/$72C0, init $702C
-;   SOUND_WRITE_A405 ($A405)  line 2065  enemy placement: write enemy XY to $7304 slots
-;   SUB_AC6D ($AC6D)          line 2955  sound sequencer: OUT $FF SN76489A each frame
-;   SUB_A92F ($A92F)          line 2499  SN76489A byte writer (4-frame sub-cycle)
-;   SUB_AC1A ($AC1A)          line 2896  sound trigger with priority ($702C/$702D)
-;   SOUND_WRITE_A548 ($A548)  line 2264  item sprite loader: walk $71B2 table
-;   SUB_AF70 ($AF70)          line 3310  BCD score add (IY=$7017 digits)
-;   SUB_AEFE ($AEFE)          line 3235  score row renderer
+; --- GAME STATE / ROOM TRANSITIONS ---
 ;
-; --- KEY RAM VARIABLES -------------------------------------------------------
-;   $7000  WORK_BUFFER flags (bit 0=game active  bit 1=VRAM-busy  bit 2=sprite-write)
-;   $7005  JOYSTICK_BUFFER (BIOS POLLER raw output)
-;   $7011  NMI sub-frame counter (1-4, drives SN76489A 4-frame sound cycle)
-;   $7047  room data cursor (16-bit pointer, INC each NMI)
-;   $7049  life counter (DEC by SUB_8DC2 on room transition)
-;   $702C  sound channel flags (bit 7=active  bit 5=sequence  bit 6=repeat)
-;   $702E  sound data pointer     $7030  note duration     $7032  frame counter
-;   $705F  game mode flags (bit 1=VRAM-busy  bit 3=room-setup  bit 5=tile-skip)
-;   $7079  game state ($08=normal play  other=room transition)
-;   $70AC  room entry mode ($01=fast  else=enemy placement)
+;   LOC_8DA2 ($8DA2)          line   834  game state dispatch ($7079)
+;   SUB_8DC2 ($8DC2)          line   849  DEC $7049 (life counter)
+;   LOC_8DD3 ($8DD3)          line   858  update $7300/$7304 player tile X/Y
+;   LOC_929B ($929B)          line  1183  inner-loop end: JP LOC_8DA2
+;
+; --- ROOM RENDERER / ENEMY PLACEMENT ---
+;
+;   SUB_A60B ($A60B)          line  2311  room setup (from NMI bit 3 of $705F)
+;   SUB_919A ($919A)          line  1061  SET bit 0 $7000; clear $707A/$7308
+;
+; --- VRAM DATA WRITER ---
+;
+;   SUB_AE00 ($AE00)          line  3084  POP HL: return addr = data ptr
+;   SUB_AE2E ($AE2E)          line  3125  set VRAM write addr + PUT_VRAM
+;   SUB_AE25 ($AE25)          line  3119  set VRAM write addr + FILL_VRAM
+;   SUB_AEA7 ($AEA7)          line  3167  tile write loop (B iterations)
+;   SUB_A8B7 ($A8B7)          line  2462  VRAM-lock enter: SET $705F bit 1
+;   SUB_A8C3 ($A8C3)          line  2471  VRAM-lock exit: DEC $70AF
+;
+; --- SOUND SYSTEM ---
+;
+;   SOUND_WRITE_A067 ($A067)  line  1661  load channel data ($7086/$72C0)
+;   SOUND_WRITE_A405 ($A405)  line  2065  enemy placement: write XY to $7304
+;   SUB_AC6D ($AC6D)          line  2955  sound sequencer: OUT $FF SN76489A
+;   SUB_A92F ($A92F)          line  2499  SN76489A byte writer (4-frame cycle)
+;   SUB_AC1A ($AC1A)          line  2896  sound trigger with priority ($702C)
+;   SOUND_WRITE_A548 ($A548)  line  2264  item sprite loader: walk $71B2
+;   SUB_AF70 ($AF70)          line  3310  BCD score add (IY=$7017 digits)
+;   SUB_AEFE ($AEFE)          line  3235  score row renderer
+;   SUB_AF54 ($AF54)          line  3286  display lives count
+;
+; --- KEY RAM ---
+;
+;   $7000  WORK_BUFFER flags (bit 0=active  bit 1=VRAM-busy)
+;   $7005  JOYSTICK_BUFFER (BIOS POLLER output)
+;   $7011  NMI sub-frame counter (1-4, SN76489A sound cycle)
+;   $7047  room data cursor pointer (INC each NMI)
+;   $7049  life counter
+;   $702C  sound channel flags (bit 7=active  bit 5=seq  bit 6=repeat)
+;   $705F  game flags (bit 1=VRAM-busy  bit 3=room-setup  bit 5=tile-skip)
+;   $7079  game state ($08=normal play)
 ;   $70AF  VRAM-lock nesting counter
 ;   $70B1  NMI flags (bit 7=re-entry  bit 3=score  bit 4=game-body)
-;   $7097  frame counter     $71A2  animation frame     $71A6  room difficulty
-;   $71A7  player speed      $71B2  item table (6 bytes, CPIR by SUB_908F)
-;   $7200  sprite bitmap buffer    $7207  flicker counter
-;   $7300  player tile X     $7304  secondary X     $7308  enemy data ($20 bytes)
+;   $7097  frame counter     $71A2  animation frame
+;   $71B2  item table (6 bytes CPIR)    $7207  sprite flicker counter
+;   $7300  player tile X     $7304  secondary X     $7308  enemy data
 ;
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; 
-; =============================================================================
-
-
-; BIOS DEFINITIONS **************************
-
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
+;
 BOOT_UP:                 EQU $0000
 BIOS_NMI:                EQU $0066
 NUMBER_TABLE:            EQU $006C
@@ -195,15 +195,15 @@ CPU Z80
 
     ORG     $8000
 
-    DW      $AA55                       ; cart magic
-    DB      $00, $73
-    DB      $E0, $72
-    DB      $10, $72
-    DW      JOYSTICK_BUFFER             ; BIOS POLLER writes controller state here
-    DW      START                       ; start address
-    DB      $C9, $00, $00, $C9, $00, $00, $C9, $00
-    DB      $00, $C9, $00, $00, $C9, $00, $00, $C9
-    DB      $00, $00, $ED, $4D, $00
+    DW      $AA55                           ; cart magic
+    DB      $00, $73                        ; cart header: NMI vector lo byte ($73=hi, $00=lo -> $7300)
+    DB      $E0, $72                        ; cart header: RST $30 vector lo/hi ($72E0)
+    DB      $10, $72                        ; cart header: RST $38 vector lo/hi ($7210)
+    DW      JOYSTICK_BUFFER                 ; BIOS POLLER writes controller state here
+    DW      START                           ; start address
+    DB      $C9, $00, $00, $C9, $00, $00, $C9, $00 ; cart header: RST vectors -- $C9 RET pads (entries 0-2)
+    DB      $00, $C9, $00, $00, $C9, $00, $00, $C9 ; cart header: RST vectors -- $C9 RET pads (entries 3-5)
+    DB      $00, $00, $ED, $4D, $00         ; cart header: RST tail -- RETN opcode + padding
 
 ; =============================================================================
 ; NMI ENTRY VECTOR -- CART_ENTRY ($8021)
@@ -216,7 +216,7 @@ CPU Z80
 ; =============================================================================
 CART_ENTRY:
     JP      NMI                             ; JP NMI  -- all VSYNC interrupts routed here
-    DB      $0B
+    DB      $0B                             ; CART_ENTRY padding byte ($0B)
 
 ; =============================================================================
 ; BOOT ENTRY -- START ($8025)
@@ -249,18 +249,18 @@ START:
     LD      BC, $0701                       ; BC = $0701 (VDP reg 7, border colour $01)
     CALL    WRITE_REGISTER                  ; CALL WRITE_REGISTER: set border colour
     CALL    LOAD_ASCII                      ; CALL LOAD_ASCII: load BIOS font to VRAM
-    LD      HL, $73C7                   ; RAM $73C7
-    LD      (HL), $01
-    LD      HL, $88C9
-    LD      DE, BOOT_UP
-    LD      IY, $0002
-    LD      A, $00
-    CALL    PUT_VRAM
-    LD      HL, $73C7                   ; RAM $73C7
-    LD      (HL), $00
-    LD      A, $08
+    LD      HL, $73C7                       ; RAM $73C7
+    LD      (HL), $01                       ; LD (HL),$01: set PUT_VRAM active flag at $73C7
+    LD      HL, $88C9                       ; LD HL,$88C9: source address for PUT_VRAM
+    LD      DE, BOOT_UP                     ; LD DE,BOOT_UP: VRAM dest = $0000 (BOOT_UP)
+    LD      IY, $0002                       ; LD IY,$0002: byte count = 2 for PUT_VRAM
+    LD      A, $00                          ; LD A,$00: A = $00 (PUT_VRAM mode)
+    CALL    PUT_VRAM                        ; CALL PUT_VRAM: write 2 bytes to VRAM $0000
+    LD      HL, $73C7                       ; RAM $73C7
+    LD      (HL), $00                       ; LD (HL),$00: clear PUT_VRAM active flag
+    LD      A, $08                          ; LD A,$08: A = $08 (8 sprites)
     CALL    INIT_SPR_NM_TBL                 ; CALL INIT_SPR_NM_TBL: init 8-slot sprite name table
-    LD      A, $08
+    LD      A, $08                          ; LD A,$08: A = $08 (8 sprite entries)
     CALL    WR_SPR_NM_TBL                   ; CALL WR_SPR_NM_TBL: write sprite name table to VRAM
     LD      DE, $7200                       ; DE = $7200 (sprite bitmap RAM destination, first set)
     LD      HL, $86C8                       ; HL = $86C8 (ROM source: first sprite bitmap block)
@@ -270,158 +270,158 @@ START:
     CALL    DELAY_LOOP_827F                 ; CALL DELAY_LOOP_827F: copy 16 pairs AND $AA55 -> $7220
     LD      A, $01                          ; A = $01 (block selector for inline VRAM data)
     CALL    SUB_AE00                        ; CALL SUB_AE00 ($01): POP HL trick -- inline data follows (bulk VRAM init)
-    XOR     B
-    ADD     A, (HL)
-    INC     (HL)
-    INC     B
-    XOR     B
-    ADD     A, (HL)
-    JR      C, LOC_8090
-    XOR     B
-    ADD     A, (HL)
-    INC     A
-    INC     B
+    XOR     B                               ; inline data: SUB_AE00 $01 VRAM block 1 byte 0
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 1 byte 1
+    INC     (HL)                            ; inline data: SUB_AE00 $01 VRAM block 1 byte 2
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 1 byte 3
+    XOR     B                               ; inline data: SUB_AE00 $01 VRAM block 1 byte 4
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 1 byte 5
+    JR      C, LOC_8090                     ; inline data: SUB_AE00 $01 VRAM block 1 byte 6
+    XOR     B                               ; inline data: SUB_AE00 $01 VRAM block 1 byte 7
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 2 byte 2
+    INC     A                               ; inline data: SUB_AE00 $01 VRAM block 2 byte 0
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 2 byte 3
 
 LOC_8090:
-    XOR     B
-    ADD     A, (HL)
+    XOR     B                               ; inline data: SUB_AE00 $01 VRAM block 3 byte 0
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 3 byte 1
 
 LOC_8092:
-    LD      C, H
-    INC     B
-    DJNZ    LOC_801D
-    LD      C, L
-    LD      BC, $8718
-    LD      C, A
-    LD      BC, $8740
-    LD      D, H
-    INC     B
-    LD      B, B
-    ADD     A, A
-    LD      E, H
-    INC     B
-    ADD     A, B
-    ADD     A, A
-    LD      E, L
-    LD      BC, $8788
-    LD      E, A
-    LD      BC, $8740
-    LD      H, H
-    INC     B
-    LD      D, D
-    ADC     A, B
-    LD      L, B
-    INC     B
-    XOR     B
-    ADD     A, (HL)
-    LD      L, H
-    INC     B
-    RET     PE
-    ADD     A, (HL)
-    LD      L, L
-    LD      BC, $86F0
-    LD      L, A
-    LD      BC, $8872
-    LD      A, B
-    INC     B
-    RET     Z
-    ADD     A, (HL)
-    SBC     A, B
-    INC     B
-    RET     Z
-    ADD     A, (HL)
-    SBC     A, H
-    INC     B
-    LD      ($9D86), HL
-    LD      BC, $86F8
-    SBC     A, A
-    LD      BC, $86C8
-    AND     B
-    INC     B
-    NOP     
-    ADD     A, A
-    AND     C
-    LD      BC, $8708
-    AND     E
-    LD      BC, $8720
-    OR      B
-    INC     B
-    LD      H, B
-    ADD     A, A
-    CP      B
-    INC     B
-    SUB     B
-    ADD     A, A
-    RET     NZ
-    INC     B
-    OR      B
-    ADD     A, A
-    RET     Z
-    INC     B
-    RET     PE
-    ADD     A, A
-    CALL    Z, $E804
-    ADD     A, A
-    RET     NC
-    INC     B
-    EX      AF, AF'
-    ADC     A, B
-    RET     NC
-    LD      BC, $8810
-    JP      NC, $0001
-    LD      (HL), D
-    CALL    NC, SUB_9208
-    ADC     A, B
-    INC     C
-    INC     B
-    JR      LOC_8092
-    DB      $10, $04, $36, $88, $14, $04, $DA, $85
-    DB      $2C, $04, $00, $00, $CD, $D6, $1F, $CD
-    DB      $7F, $1F, $11, $41, $00, $21, $80, $00
-    DB      $01, $1A, $00, $3E, $03, $CD, $73, $1F
-    DB      $CD, $08, $83, $3E, $A0, $21, $10, $20
-    DB      $11, $0E, $00, $CD, $82, $1F, $3E, $02
-    DB      $CD, $00, $AE, $AA, $82, $48, $10, $BA
-    DB      $82, $8C, $08, $DE, $82, $C6, $15, $F3
-    DB      $82, $E6, $15, $00, $00, $21, $C2, $82
-    DB      $11, $2A, $01, $01, $0D, $01, $CD, $A7
-    DB      $AE, $21, $D0, $82, $11, $4A, $01, $01
-    DB      $0D, $01, $CD, $A7, $AE, $21, $93, $82
-    DB      $11, $E5, $01, $01, $17, $01, $CD, $A7
-    DB      $AE, $01, $C0, $01, $CD, $D9, $1F, $CD
-    DB      $76, $1F, $3A, $F0, $73, $FE, $82, $20
-    DB      $04, $3E, $01, $18, $0E, $FE, $88, $20
-    DB      $04, $3E, $02, $18, $06, $FE, $83, $20
-    DB      $E6, $3E, $03, $32, $A6, $71, $01, $80
-    DB      $01, $CD, $D9, $1F, $AF, $21, $00, $04
-    DB      $11, $AC, $03, $CD, $82, $1F, $AF, $21
-    DB      $00, $18, $11, $00, $03, $CD, $82, $1F
-    DB      $CD, $DC, $81, $3E, $02, $32, $73, $70
-    DB      $32, $74, $70, $32, $12, $70, $32, $68
-    DB      $70, $21, $1A, $83, $CD, $3B, $AE, $CD
-    DB      $52, $83, $AF, $32, $2C, $70, $32, $36
-    DB      $70, $01, $E2, $01, $CD, $D9, $1F, $C3
-    DB      $9D, $A5, $0E, $01, $3E, $08, $CD, $92
-    DB      $83, $3E, $03, $CD, $00, $AE, $10, $85
-    DB      $D2, $04, $B1, $88, $D0, $01, $D0, $87
-    DB      $38, $01, $30, $85, $04, $03, $00, $00
-    DB      $CD, $14, $83, $0E, $02, $3E, $10, $CD
-    DB      $92, $83, $3E, $03, $CD, $00, $AE, $18
-    DB      $85, $D2, $03, $10, $85, $D5, $01, $B9
-    DB      $88, $D0, $01, $D8, $87, $38, $01, $46
-    DB      $85, $04, $03, $70, $86, $A0, $01, $78
-    DB      $86, $A3, $01, $00, $00, $CD, $14, $83
-    DB      $0E, $05, $3E, $28, $CD, $92, $83, $3E
-    DB      $03, $CD, $00, $AE, $20, $85, $D2, $02
-    DB      $10, $85, $D4, $02, $B1, $88, $D0, $01
-    DB      $E0, $87, $38, $01, $5E, $85, $04, $03
-    DB      $70, $86, $A0, $01, $78, $86, $A3, $01
-    DB      $00, $00, $CD, $14, $83, $0E, $00, $AF
-    DB      $CD, $92, $83, $CD, $08, $83, $3E, $03
-    DB      $CD, $00, $AE, $28, $85, $D2, $01, $10
-    DB      $85, $D3, $03, $C1, $88, $D0, $01, $E0
-    DB      $87, $38, $01, $74, $85, $04, $03, $00
-    DB      $00, $CD, $14, $83, $C9
+    LD      C, H                            ; inline data: SUB_AE00 $01 VRAM block 3 byte 2
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 4 byte 0
+    DJNZ    LOC_801D                        ; inline data: SUB_AE00 $01 VRAM block 4 byte 1
+    LD      C, L                            ; inline data: SUB_AE00 $01 VRAM block 4 byte 2
+    LD      BC, $8718                       ; inline data: SUB_AE00 $01 VRAM block 4 byte 3
+    LD      C, A                            ; inline data: SUB_AE00 $01 VRAM block 4 byte 4
+    LD      BC, $8740                       ; inline data: SUB_AE00 $01 VRAM block 4 byte 5
+    LD      D, H                            ; inline data: SUB_AE00 $01 VRAM block 4 byte 6
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 4 byte 7
+    LD      B, B                            ; inline data: SUB_AE00 $01 VRAM block 5 byte 0
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 5 byte 1
+    LD      E, H                            ; inline data: SUB_AE00 $01 VRAM block 5 byte 2
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 5 byte 3
+    ADD     A, B                            ; inline data: SUB_AE00 $01 VRAM block 5 byte 4
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 5 byte 5
+    LD      E, L                            ; inline data: SUB_AE00 $01 VRAM block 5 byte 6
+    LD      BC, $8788                       ; inline data: SUB_AE00 $01 VRAM block 5 byte 7
+    LD      E, A                            ; inline data: SUB_AE00 $01 VRAM block 6 byte 0
+    LD      BC, $8740                       ; inline data: SUB_AE00 $01 VRAM block 6 byte 1
+    LD      H, H                            ; inline data: SUB_AE00 $01 VRAM block 6 byte 2
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 6 byte 3
+    LD      D, D                            ; inline data: SUB_AE00 $01 VRAM block 6 byte 4
+    ADC     A, B                            ; inline data: SUB_AE00 $01 VRAM block 6 byte 5
+    LD      L, B                            ; inline data: SUB_AE00 $01 VRAM block 6 byte 6
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 6 byte 7
+    XOR     B                               ; inline data: SUB_AE00 $01 VRAM block 7 byte 0
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 7 byte 1
+    LD      L, H                            ; inline data: SUB_AE00 $01 VRAM block 7 byte 2
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 7 byte 3
+    RET     PE                              ; inline data: SUB_AE00 $01 VRAM block 7 byte 4
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 7 byte 5
+    LD      L, L                            ; inline data: SUB_AE00 $01 VRAM block 8 byte 0
+    LD      BC, $86F0                       ; inline data: SUB_AE00 $01 VRAM block 8 byte 1
+    LD      L, A                            ; inline data: SUB_AE00 $01 VRAM block 8 byte 2
+    LD      BC, $8872                       ; inline data: SUB_AE00 $01 VRAM block 8 byte 3
+    LD      A, B                            ; inline data: SUB_AE00 $01 VRAM block 8 byte 4
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 8 byte 5
+    RET     Z                               ; inline data: SUB_AE00 $01 VRAM block 8 byte 6
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 8 byte 7
+    SBC     A, B                            ; inline data: SUB_AE00 $01 VRAM block 9 byte 0
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 9 byte 1
+    RET     Z                               ; inline data: SUB_AE00 $01 VRAM block 9 byte 2
+    ADD     A, (HL)                         ; inline data: SUB_AE00 $01 VRAM block 9 byte 3
+    SBC     A, H                            ; inline data: SUB_AE00 $01 VRAM block 9 byte 4
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 9 byte 5
+    LD      ($9D86), HL                     ; inline data: SUB_AE00 $01 VRAM block 10 byte 0
+    LD      BC, $86F8                       ; inline data: SUB_AE00 $01 VRAM block 10 byte 1
+    SBC     A, A                            ; inline data: SUB_AE00 $01 VRAM block 10 byte 2
+    LD      BC, $86C8                       ; inline data: SUB_AE00 $01 VRAM block 10 byte 3
+    AND     B                               ; inline data: SUB_AE00 $01 VRAM block 10 byte 4
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 10 byte 5
+    NOP                                     ; inline data: SUB_AE00 $01 VRAM block 11 byte 0
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 11 byte 1
+    AND     C                               ; inline data: SUB_AE00 $01 VRAM block 11 byte 2
+    LD      BC, $8708                       ; inline data: SUB_AE00 $01 VRAM block 11 byte 3
+    AND     E                               ; inline data: SUB_AE00 $01 VRAM block 11 byte 4
+    LD      BC, $8720                       ; inline data: SUB_AE00 $01 VRAM block 11 byte 5
+    OR      B                               ; inline data: SUB_AE00 $01 VRAM block 12 byte 0
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 12 byte 1
+    LD      H, B                            ; inline data: SUB_AE00 $01 VRAM block 12 byte 2
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 12 byte 3
+    CP      B                               ; inline data: SUB_AE00 $01 VRAM block 12 byte 4
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 12 byte 5
+    SUB     B                               ; inline data: SUB_AE00 $01 VRAM block 12 byte 6
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 12 byte 7
+    RET     NZ                              ; inline data: SUB_AE00 $01 VRAM block 13 byte 0
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 13 byte 1
+    OR      B                               ; inline data: SUB_AE00 $01 VRAM block 13 byte 2
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 13 byte 3
+    RET     Z                               ; inline data: SUB_AE00 $01 VRAM block 13 byte 4
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 13 byte 5
+    RET     PE                              ; inline data: SUB_AE00 $01 VRAM block 13 byte 6
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 13 byte 7
+    CALL    Z, $E804                        ; inline data: SUB_AE00 $01 VRAM block 14 byte 0
+    ADD     A, A                            ; inline data: SUB_AE00 $01 VRAM block 14 byte 1
+    RET     NC                              ; inline data: SUB_AE00 $01 VRAM block 14 byte 2
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 14 byte 3
+    EX      AF, AF'                         ; inline data: SUB_AE00 $01 VRAM block 14 byte 4
+    ADC     A, B                            ; inline data: SUB_AE00 $01 VRAM block 14 byte 5
+    RET     NC                              ; inline data: SUB_AE00 $01 VRAM block 14 byte 6
+    LD      BC, $8810                       ; inline data: SUB_AE00 $01 VRAM block 14 byte 7
+    JP      NC, $0001                       ; inline data: SUB_AE00 $01 VRAM block 15 byte 0
+    LD      (HL), D                         ; inline data: SUB_AE00 $01 VRAM block 15 byte 1
+    CALL    NC, SUB_9208                    ; inline data: SUB_AE00 $01 VRAM block 15 byte 2
+    ADC     A, B                            ; inline data: SUB_AE00 $01 VRAM block 15 byte 3
+    INC     C                               ; inline data: SUB_AE00 $01 VRAM block 15 byte 4
+    INC     B                               ; inline data: SUB_AE00 $01 VRAM block 15 byte 5
+    JR      LOC_8092                        ; inline data: SUB_AE00 $01 VRAM block 15 end
+    DB      $10, $04, $36, $88, $14, $04, $DA, $85 ; SUB_AE00 $01 tbl: entry [C=$10,cnt=4,vram=$88,str=$36]
+    DB      $2C, $04, $00, $00, $CD, $D6, $1F, $CD ; SUB_AE00 $01 tbl: [C=$2C,cnt=4,END] terminator + inline Z80
+    DB      $7F, $1F, $11, $41, $00, $21, $80, $00 ; SUB_AE00 $01 inline Z80: LD HL,$1F7F / LD DE,$0041 ...
+    DB      $01, $1A, $00, $3E, $03, $CD, $73, $1F ; SUB_AE00 $01 inline Z80: LD HL,$0080 / LD BC,$001A ...
+    DB      $CD, $08, $83, $3E, $A0, $21, $10, $20 ; SUB_AE00 $01 inline Z80: LD A,$03 / CALL $1F73 ...
+    DB      $11, $0E, $00, $CD, $82, $1F, $3E, $02 ; SUB_AE00 $01 inline Z80: CALL $8308 / LD A,$A0 ...
+    DB      $CD, $00, $AE, $AA, $82, $48, $10, $BA ; SUB_AE00 $01 inline Z80: LD HL,$2010 / LD DE,$000E ...
+    DB      $82, $8C, $08, $DE, $82, $C6, $15, $F3 ; SUB_AE00 $01 inline Z80: CALL $1F82 / LD A,$02 ...
+    DB      $82, $E6, $15, $00, $00, $21, $C2, $82 ; SUB_AE00 $01 inline Z80: CALL $AE00 -- nested VRAM write
+    DB      $11, $2A, $01, $01, $0D, $01, $CD, $A7 ; SUB_AE00 $01 inline Z80: nested block entries (4 entries)
+    DB      $AE, $21, $D0, $82, $11, $4A, $01, $01 ; SUB_AE00 $01 inline Z80: nested entries continued
+    DB      $0D, $01, $CD, $A7, $AE, $21, $93, $82 ; SUB_AE00 $01 inline Z80: nested entries continued
+    DB      $11, $E5, $01, $01, $17, $01, $CD, $A7 ; SUB_AE00 $01 inline Z80: LD HL,$82C2 / LD DE,$012A ...
+    DB      $AE, $01, $C0, $01, $CD, $D9, $1F, $CD ; SUB_AE00 $01 inline Z80: CALL $AEA7 room-tile write block 1
+    DB      $76, $1F, $3A, $F0, $73, $FE, $82, $20 ; SUB_AE00 $01 inline Z80: CALL $AEA7 room-tile write block 2
+    DB      $04, $3E, $01, $18, $0E, $FE, $88, $20 ; SUB_AE00 $01 inline Z80: CALL $AEA7 room-tile write block 3
+    DB      $04, $3E, $02, $18, $06, $FE, $83, $20 ; SUB_AE00 $01 inline Z80: CALL $AEA7 room-tile write block 4
+    DB      $E6, $3E, $03, $32, $A6, $71, $01, $80 ; SUB_AE00 $01 inline Z80: CALL $81DC / LD A,$02 ...
+    DB      $01, $CD, $D9, $1F, $AF, $21, $00, $04 ; SUB_AE00 $01 inline Z80: LD ($7073)/$7074/$7012/$7068 ...
+    DB      $11, $AC, $03, $CD, $82, $1F, $AF, $21 ; SUB_AE00 $01 inline Z80: CALL $AE3B / CALL $8352 ...
+    DB      $00, $18, $11, $00, $03, $CD, $82, $1F ; SUB_AE00 $01 inline Z80: clear $702C/$7036 / CALL $81DC
+    DB      $CD, $DC, $81, $3E, $02, $32, $73, $70 ; SUB_AE00 $01 inline Z80: CALL $81DC / JP $A59D ...
+    DB      $32, $74, $70, $32, $12, $70, $32, $68 ; SUB_AE00 $01 inline Z80: LD C,$01 / LD A,$08 / CALL $8392
+    DB      $70, $21, $1A, $83, $CD, $3B, $AE, $CD ; SUB_AE00 $01 inline Z80: LD A,$03 / CALL $AE00 level-1 blk
+    DB      $52, $83, $AF, $32, $2C, $70, $32, $36 ; SUB_AE00 $01 inline Z80: level-1 SUB_AE00 entries row 1
+    DB      $70, $01, $E2, $01, $CD, $D9, $1F, $C3 ; SUB_AE00 $01 inline Z80: level-1 entries + terminator
+    DB      $9D, $A5, $0E, $01, $3E, $08, $CD, $92 ; SUB_AE00 $01 inline Z80: CALL $8314 / LD C,$02 ...
+    DB      $83, $3E, $03, $CD, $00, $AE, $10, $85 ; SUB_AE00 $01 inline Z80: LD A,$10 / CALL $8392 level-2
+    DB      $D2, $04, $B1, $88, $D0, $01, $D0, $87 ; SUB_AE00 $01 inline Z80: LD A,$03 / CALL $AE00 level-2 blk
+    DB      $38, $01, $30, $85, $04, $03, $00, $00 ; SUB_AE00 $01 inline Z80: level-2 SUB_AE00 entries row 1
+    DB      $CD, $14, $83, $0E, $02, $3E, $10, $CD ; SUB_AE00 $01 inline Z80: level-2 entries continued
+    DB      $92, $83, $3E, $03, $CD, $00, $AE, $18 ; SUB_AE00 $01 inline Z80: level-2 entries + terminator
+    DB      $85, $D2, $03, $10, $85, $D5, $01, $B9 ; SUB_AE00 $01 inline Z80: CALL $8314 / LD C,$05 ...
+    DB      $88, $D0, $01, $D8, $87, $38, $01, $46 ; SUB_AE00 $01 inline Z80: LD A,$28 / CALL $8392 level-3
+    DB      $85, $04, $03, $70, $86, $A0, $01, $78 ; SUB_AE00 $01 inline Z80: LD A,$03 / CALL $AE00 level-3 blk
+    DB      $86, $A3, $01, $00, $00, $CD, $14, $83 ; SUB_AE00 $01 inline Z80: level-3 SUB_AE00 entries row 1
+    DB      $0E, $05, $3E, $28, $CD, $92, $83, $3E ; SUB_AE00 $01 inline Z80: level-3 entries continued
+    DB      $03, $CD, $00, $AE, $20, $85, $D2, $02 ; SUB_AE00 $01 inline Z80: level-3 entries + terminator
+    DB      $10, $85, $D4, $02, $B1, $88, $D0, $01 ; SUB_AE00 $01 inline Z80: CALL $8314 / LD C,$00 ...
+    DB      $E0, $87, $38, $01, $5E, $85, $04, $03 ; SUB_AE00 $01 inline Z80: LD A,$03 / CALL $AE00 level-4 blk
+    DB      $70, $86, $A0, $01, $78, $86, $A3, $01 ; SUB_AE00 $01 inline Z80: level-4 SUB_AE00 entries row 1
+    DB      $00, $00, $CD, $14, $83, $0E, $00, $AF ; SUB_AE00 $01 inline Z80: level-4 entries continued
+    DB      $CD, $92, $83, $CD, $08, $83, $3E, $03 ; SUB_AE00 $01 inline Z80: level-4 terminator + RET ($C9)
+    DB      $CD, $00, $AE, $28, $85, $D2, $01, $10 ; SUB_AE00 $01 inline Z80: terminator + CALL $8314 tail
+    DB      $85, $D3, $03, $C1, $88, $D0, $01, $E0 ; SUB_AE00 $01 inline Z80: level-4 entries continued
+    DB      $87, $38, $01, $74, $85, $04, $03, $00 ; SUB_AE00 $01 inline Z80: level-4 terminator $00,$00 ...
+    DB      $00, $CD, $14, $83, $C9         ; SUB_AE00 $01 inline Z80: CALL $8314 / RET $C9 (end)
 
 DELAY_LOOP_827F:
     LD      B, $10                          ; B = 16 (loop 16 pairs)
@@ -432,12 +432,12 @@ LOC_8281:
     LD      A, (HL)                         ; A = byte from ROM source
     AND     B                               ; AND B ($AA): keep odd-column bits
     LD      (DE), A                         ; store masked byte to RAM (first of pair)
-    INC     DE
+    INC     DE                              ; INC DE: advance dest past first masked byte
     INC     HL                              ; advance ROM source pointer
     LD      A, (HL)                         ; A = next ROM byte
     AND     C                               ; AND C ($55): keep even-column bits
     LD      (DE), A                         ; store second masked byte to RAM
-    INC     DE
+    INC     DE                              ; INC DE: advance dest past second masked byte
     INC     HL                              ; advance ROM source
     POP     BC                              ; restore loop counter B
     DJNZ    LOC_8281                        ; DJNZ LOC_8281: loop 16 times
@@ -447,57 +447,57 @@ LOC_8281:
     DB      $2C, $20, $32, $2C, $20, $33, $2E, $50 ; ", 2, 3.P"
     DB      $41, $52, $4B, $45, $52, $20, $42, $52 ; "ARKER BR"
     DB      $4F, $54, $48, $45, $52, $53, $20, $50 ; "OTHERS P"
-    DB      $52, $45, $53, $45, $4E, $54, $53, $C4
-    DB      $C6, $90, $92, $D4, $D6, $90, $92, $B4
-    DB      $B6, $98, $9A, $90, $92, $C5, $C7, $91
-    DB      $93, $D5, $D7, $91, $93, $B5, $B7, $99
-    DB      $9B, $91, $93, $B0, $B2, $B8, $BA, $B4
-    DB      $B6, $CC, $CE, $90, $92, $E4, $E6, $D0
-    DB      $D2, $B0, $B2, $80, $82, $27, $C8, $CA
-    DB      $B1, $B3, $B9, $BB, $B5, $B7, $CD, $CF
-    DB      $91, $93, $E5, $E7, $D1, $D3, $B1, $B3
-    DB      $81, $83, $00, $C9, $CB
+    DB      $52, $45, $53, $45, $4E, $54, $53, $C4 ; inline text (post-RET): "PRESENTS" partial + tile IDs
+    DB      $C6, $90, $92, $D4, $D6, $90, $92, $B4 ; inline tile IDs: title screen sprite tile indices row 1
+    DB      $B6, $98, $9A, $90, $92, $C5, $C7, $91 ; inline tile IDs: title screen sprite tile indices row 2
+    DB      $93, $D5, $D7, $91, $93, $B5, $B7, $99 ; inline tile IDs: title screen sprite tile indices row 3
+    DB      $9B, $91, $93, $B0, $B2, $B8, $BA, $B4 ; inline tile IDs: title screen sprite tile indices row 4
+    DB      $B6, $CC, $CE, $90, $92, $E4, $E6, $D0 ; inline tile IDs: title screen sprite tile indices row 5
+    DB      $D2, $B0, $B2, $80, $82, $27, $C8, $CA ; inline tile IDs: title screen sprite tile indices row 6
+    DB      $B1, $B3, $B9, $BB, $B5, $B7, $CD, $CF ; inline tile IDs: title screen sprite tile indices row 7
+    DB      $91, $93, $E5, $E7, $D1, $D3, $B1, $B3 ; inline tile IDs: title screen sprite tile indices row 8
+    DB      $81, $83, $00, $C9, $CB         ; inline tile IDs: terminator $00 + RET $C9 + extra byte
 
 SUB_8308:
     LD      A, $04                          ; A = $04 (block selector for room tile data)
     CALL    SUB_AE00                        ; CALL SUB_AE00 ($04): POP HL trick -- write current room tiles to VRAM
-    LD      E, $84
-    NOP     
-    INC     E
-    NOP     
-    NOP     
-    RET     
-    DB      $21, $7D, $83, $C3, $3B, $AE, $00, $01
-    DB      $10, $19, $11, $18, $12, $1B, $13, $1A
-    DB      $0C, $1D, $0D, $1C, $0E, $1F, $0F, $1E
-    DB      $FF, $D4, $DE, $D8, $E2, $18, $22, $14
-    DB      $26, $10, $2A, $2C, $32, $34, $42, $4C
-    DB      $52, $54, $5A, $5C, $62, $98, $A6, $6C
-    DB      $7E, $9C, $AA, $A0, $AE, $A0, $AE, $B0
-    DB      $B6, $B8, $BE, $C0, $C6, $FF, $21, $2D
-    DB      $83, $7E, $FE, $FF, $C8, $16, $00, $01
-    DB      $02, $00, $5F, $23, $E5, $7E, $6F, $26
-    DB      $00, $3E, $01, $D5, $E5, $C5, $F5, $CD
-    DB      $6A, $1F, $F1, $C1, $E1, $D1, $13, $13
-    DB      $2B, $2B, $CD, $6A, $1F, $E1, $23, $18
-    DB      $D8, $01, $03, $A0, $A4, $A1, $A5, $A2
-    DB      $A6, $A3, $A7, $04, $BA, $05, $B9, $06
-    DB      $B8, $62, $63, $D0, $D1, $FF, $F5, $06
-    DB      $04, $CD, $D9, $1F, $F1, $32, $F9, $73
-    DB      $CD, $7F, $1F, $3E, $03, $CD, $00, $AE
-    DB      $40, $84, $08, $05, $FA, $85, $90, $08
-    DB      $3A, $86, $60, $03, $08, $85, $6F, $01
-    DB      $9C, $85, $6C, $02, $2A, $86, $74, $02
-    DB      $8C, $85, $98, $04, $02, $86, $68, $04
-    DB      $02, $86, $70, $04, $02, $86, $78, $04
-    DB      $50, $86, $A0, $04, $3A, $86, $A8, $03
-    DB      $80, $86, $C0, $06, $80, $86, $C7, $01
-    DB      $80, $86, $95, $01, $80, $86, $B0, $05
-    DB      $80, $86, $B7, $01, $80, $86, $BB, $05
-    DB      $80, $86, $9C, $01, $AC, $85, $10, $02
-    DB      $AC, $85, $88, $02, $68, $84, $18, $0A
-    DB      $B8, $84, $28, $0A, $BC, $85, $E0, $01
-    DB      $CA, $85, $E8, $01, $00, $00, $C9
+    LD      E, $84                          ; inline data: SUB_AE00 $04 VRAM block byte 0
+    NOP                                     ; inline data: SUB_AE00 $04 VRAM block byte 1
+    INC     E                               ; inline data: SUB_AE00 $04 VRAM block byte 2
+    NOP                                     ; inline data: SUB_AE00 $04 VRAM block byte 3
+    NOP                                     ; inline data: SUB_AE00 $04 VRAM block byte 4
+    RET                                     ; inline data: SUB_AE00 $04 VRAM block end (RET opcode)
+    DB      $21, $7D, $83, $C3, $3B, $AE, $00, $01 ; SUB_AE00 $04 inline Z80: LD HL,$837D / JP $AE3B ...
+    DB      $10, $19, $11, $18, $12, $1B, $13, $1A ; room tile index table: tile pairs rows 0-1
+    DB      $0C, $1D, $0D, $1C, $0E, $1F, $0F, $1E ; room tile index table: tile pairs rows 2-3
+    DB      $FF, $D4, $DE, $D8, $E2, $18, $22, $14 ; room tile index table: tile pairs rows 4-5 + sentinel $FF
+    DB      $26, $10, $2A, $2C, $32, $34, $42, $4C ; room tile index table: LD HL,$832D / LD A,(HL) ...
+    DB      $52, $54, $5A, $5C, $62, $98, $A6, $6C ; room tile index inline Z80: LD D,$00 / LD BC,$0002 ...
+    DB      $7E, $9C, $AA, $A0, $AE, $A0, $AE, $B0 ; room tile index inline Z80: LD A,E / PUSH DE+HL+BC+AF ...
+    DB      $B6, $B8, $BE, $C0, $C6, $FF, $21, $2D ; room tile index inline Z80: CALL $1F6A / POP AF+BC+HL+DE
+    DB      $83, $7E, $FE, $FF, $C8, $16, $00, $01 ; room tile index inline Z80: INC DE (x2) / DEC HL (x2) ...
+    DB      $02, $00, $5F, $23, $E5, $7E, $6F, $26 ; room tile index inline Z80: CALL $1F6A / POP HL / JR $18
+    DB      $00, $3E, $01, $D5, $E5, $C5, $F5, $CD ; SUB_AE00 $03 block: [BC=$0103,A0,A4,A1,A5,A2,A6,A3,A7]
+    DB      $6A, $1F, $F1, $C1, $E1, $D1, $13, $13 ; SUB_AE00 $03 block: [B8,$62,$63,D0,D1] + sentinel $FF ...
+    DB      $2B, $2B, $CD, $6A, $1F, $E1, $23, $18 ; inline Z80: PUSH AF / LD B,$04 / CALL $1FD9 ...
+    DB      $D8, $01, $03, $A0, $A4, $A1, $A5, $A2 ; inline Z80: CALL $1F7F / LD A,$03 / CALL $AE00
+    DB      $A6, $A3, $A7, $04, $BA, $05, $B9, $06 ; SUB_AE00 $03 entries: [$40,$84,$08,$05] [$FA,$85,$90,$08]
+    DB      $B8, $62, $63, $D0, $D1, $FF, $F5, $06 ; SUB_AE00 $03 entries: [$3A,$86,$60,$03] [$08,$85,$6F,$01]
+    DB      $04, $CD, $D9, $1F, $F1, $32, $F9, $73 ; SUB_AE00 $03 entries: [$9C,$85,$6C,$02] [$2A,$86,$74,$02]
+    DB      $CD, $7F, $1F, $3E, $03, $CD, $00, $AE ; SUB_AE00 $03 entries: [$8C,$85,$98,$04] [$02,$86,$68,$04]
+    DB      $40, $84, $08, $05, $FA, $85, $90, $08 ; SUB_AE00 $03 entries: [$02,$86,$70,$04] [$02,$86,$78,$04]
+    DB      $3A, $86, $60, $03, $08, $85, $6F, $01 ; SUB_AE00 $03 entries: [$50,$86,$A0,$04] [$3A,$86,$A8,$03]
+    DB      $9C, $85, $6C, $02, $2A, $86, $74, $02 ; SUB_AE00 $03 entries: [$80,$86,$C0,$06] [$80,$86,$C7,$01]
+    DB      $8C, $85, $98, $04, $02, $86, $68, $04 ; SUB_AE00 $03 entries: [$80,$86,$95,$01] [$80,$86,$B0,$05]
+    DB      $02, $86, $70, $04, $02, $86, $78, $04 ; SUB_AE00 $03 entries: [$80,$86,$B7,$01] [$80,$86,$BB,$05]
+    DB      $50, $86, $A0, $04, $3A, $86, $A8, $03 ; SUB_AE00 $03 entries: [$80,$86,$9C,$01] [$AC,$85,$10,$02]
+    DB      $80, $86, $C0, $06, $80, $86, $C7, $01 ; SUB_AE00 $03 entries: [$AC,$85,$88,$02] [$68,$84,$18,$0A]
+    DB      $80, $86, $95, $01, $80, $86, $B0, $05 ; SUB_AE00 $03 entries: [$B8,$84,$28,$0A] [$BC,$85,$E0,$01]
+    DB      $80, $86, $B7, $01, $80, $86, $BB, $05 ; SUB_AE00 $03 entries: [$CA,$85,$E8,$01] terminator+RET $C9
+    DB      $80, $86, $9C, $01, $AC, $85, $10, $02 ; SUB_AE00 $03 entries: terminator $00,$00 / RET $C9
+    DB      $AC, $85, $88, $02, $68, $84, $18, $0A ; SUB_AE00 $03: inline Z80 continued after terminator
+    DB      $B8, $84, $28, $0A, $BC, $85, $E0, $01 ; SUB_AE00 $03: inline Z80 continued
+    DB      $CA, $85, $E8, $01, $00, $00, $C9 ; SUB_AE00 $03: inline Z80 tail bytes
 
 SUB_840B:
     LD      (HL), $00                       ; (HL) = $00 (seed first byte)
@@ -505,319 +505,319 @@ SUB_840B:
     POP     DE                              ; POP DE (DE = HL -- copy source addr)
     INC     DE                              ; INC DE (DE = HL+1, destination one byte ahead)
     LDIR                                    ; LDIR: fill BC bytes with $00 by propagating the seed
-    RET     
+    RET                                     ; RET: return from SUB_840B
 
 SUB_8413:
     LD      HL, BOOT_UP                     ; HL = $0000 (BOOT_UP = VRAM start address)
     LD      DE, $4000                       ; DE = $4000 (length: entire 16 KB VRAM)
     XOR     A                               ; A = $00 (fill value: blank)
     CALL    FILL_VRAM                       ; CALL FILL_VRAM: clear all VRAM
-    RET     
-    DB      $90, $A7, $4A, $8B, $B1, $F0, $F0, $F0
-    DB      $F0, $F0, $F0, $F0, $20, $90, $E0, $40
-    DB      $40, $40, $E0, $90, $20, $20, $40, $90
-    DB      $E0, $4A, $90, $60, $40, $40, $00, $00
-    DB      $00, $00, $FB, $FB, $FB, $00, $7F, $7F
-    DB      $7F, $00, $FB, $FB, $FB, $00, $00, $00
-    DB      $00, $00, $F0, $F0, $F0, $00, $F0, $F0
-    DB      $F0, $00, $0B, $0B, $0B, $00, $0F, $0F
-    DB      $0F, $00, $00, $00, $00, $00, $7F, $7F
-    DB      $7F, $00, $38, $7C, $FE, $FE, $EE, $C6
-    DB      $C6, $C6, $38, $78, $F8, $F8, $F8, $F8
-    DB      $38, $38, $38, $7C, $FE, $FE, $EE, $C6
-    DB      $C6, $0E, $38, $7C, $FE, $FE, $FE, $C6
-    DB      $06, $1C, $1C, $3C, $3C, $7C, $7C, $EC
-    DB      $EC, $CC, $FE, $FE, $FE, $FE, $C6, $E0
-    DB      $F8, $3E, $38, $7C, $FE, $FE, $EE, $C0
-    DB      $F8, $FC, $FE, $FE, $FE, $FE, $FE, $0E
-    DB      $0E, $1E, $38, $7C, $FE, $FE, $EE, $C6
-    DB      $EE, $7C, $38, $7C, $FE, $FE, $EE, $C6
-    DB      $EE, $7E, $EE, $FE, $FE, $FE, $FE, $FE
-    DB      $7C, $38, $38, $38, $38, $38, $FE, $FE
-    DB      $FE, $FE, $1E, $3C, $78, $70, $FE, $FE
-    DB      $FE, $FE, $1C, $06, $C6, $EE, $FE, $FE
-    DB      $7C, $38, $CC, $FE, $FE, $FE, $FE, $FE
-    DB      $18, $18, $0E, $C6, $C6, $EE, $FE, $FE
-    DB      $7C, $38, $EE, $C6, $EE, $FE, $FE, $FE
-    DB      $7C, $38, $1E, $1C, $3C, $38, $78, $78
-    DB      $70, $70, $EE, $C6, $EE, $FE, $FE, $FE
-    DB      $7C, $38, $3E, $06, $C6, $EE, $FE, $FE
-    DB      $7C, $38, $00, $00, $3C, $3C, $7E, $7E
-    DB      $00, $00, $08, $06, $07, $07, $0F, $1F
-    DB      $7F, $FF, $00, $00, $24, $33, $71, $FD
-    DB      $FF, $FF, $00, $00, $01, $81, $F1, $F9
-    DB      $FB, $FF, $00, $80, $00, $81, $C2, $E6
-    DB      $EF, $FF, $C0, $C0, $3F, $3F, $3F, $3F
-    DB      $03, $03, $C0, $C0, $FF, $FF, $FF, $FF
-    DB      $03, $03, $C0, $C0, $FC, $FC, $FC, $FC
-    DB      $03, $03, $3F, $FF, $FF, $3F, $00, $00
-    DB      $03, $03, $FF, $FF, $FF, $FF, $C0, $C0
-    DB      $00, $00, $FC, $FF, $FF, $FC, $C0, $C0
-    DB      $0C, $0C, $3F, $3F, $3F, $3F, $C0, $C0
-    DB      $0C, $0C, $FF, $FF, $FF, $FF, $30, $30
-    DB      $03, $03, $FC, $FC, $FC, $FC, $30, $30
-    DB      $3F, $3F, $3F, $3F, $0C, $0C, $30, $30
-    DB      $FF, $FF, $FF, $FF, $0C, $0C, $30, $30
-    DB      $FC, $FC, $FC, $FC, $0C, $0C, $00, $7E
-    DB      $81, $BD, $BD, $BD, $BD, $BD, $BD, $BD
-    DB      $BD, $81, $7E, $00, $00, $00, $03, $03
-    DB      $0F, $0F, $03, $03, $03, $00, $80, $80
-    DB      $E0, $E0, $80, $80, $80, $00, $30, $30
-    DB      $30, $30, $3F, $30, $30, $30, $0C, $0C
-    DB      $0C, $0C, $FC, $0C, $0C, $0C, $7C, $6C
-    DB      $6C, $6C, $6C, $7C, $10, $10, $7C, $6C
-    DB      $6C, $6C, $6C, $7C, $FF, $66, $C3, $66
-    DB      $FF, $00, $00, $00, $FF, $66, $18, $66
-    DB      $FF, $00, $00, $00, $00, $00, $00, $00
-    DB      $00, $00, $00, $08, $14, $23, $09, $17
-    DB      $23, $0B, $17, $21, $00, $00, $00, $00
-    DB      $00, $10, $28, $44, $90, $A8, $C4, $D0
-    DB      $E8, $C4, $C0, $80, $18, $18, $18, $18
-    DB      $0C, $0C, $0C, $0C, $07, $0F, $1C, $1C
-    DB      $0F, $03, $03, $01, $E0, $F0, $38, $38
-    DB      $F0, $C0, $C0, $80, $01, $01, $03, $01
-    DB      $03, $01, $00, $00, $80, $80, $80, $80
-    DB      $80, $80, $00, $00, $3C, $1C, $00, $00
-    DB      $00, $38, $3C, $3C, $02, $03, $03, $03
-    DB      $03, $03, $03, $03, $00, $00, $80, $80
-    DB      $80, $80, $80, $80, $00, $2D, $3F, $3F
-    DB      $2D, $0C, $0C, $0C, $0C, $0C, $0C, $0C
-    DB      $0C, $00, $00, $00, $1F, $0F, $03, $03
-    DB      $03, $01, $00, $00, $00, $03, $0C, $0F
-    DB      $00, $00, $00, $00, $00, $C0, $E0, $F0
-    DB      $30, $F0, $07, $1E, $18, $18, $18, $0C
-    DB      $06, $03, $C0, $00, $00, $00, $01, $03
-    DB      $0E, $FC, $00, $00, $00, $03, $0C, $3F
-    DB      $00, $00, $C0, $00, $00, $00, $04, $0C
-    DB      $0C, $FC, $7E, $7E, $7E, $7E, $7E, $7E
-    DB      $7E, $7E, $00, $07, $0F, $09, $29, $6F
-    DB      $E9, $E9, $00, $E0, $E0, $28, $2C, $EE
-    DB      $2F, $2F, $EF, $EF, $EF, $EF, $EF, $EF
-    DB      $EF, $EF, $FF, $FF, $7E, $7E, $3C, $3C
-    DB      $3C, $3C, $07, $07, $1F, $3F, $38, $08
-    DB      $00, $1F, $3F, $0F, $07, $03, $33, $3F
-    DB      $3C, $38, $C0, $C0, $F8, $F8, $80, $00
-    DB      $00, $E0, $C0, $C0, $C0, $C0, $E0, $E0
-    DB      $E0, $E0, $00, $07, $07, $07, $00, $00
-    DB      $30, $38, $3C, $1C, $00, $00, $00, $38
-    DB      $3C, $1C, $00, $60, $E0, $C0, $00, $B0
-    DB      $30, $BC, $3C, $80, $00, $00, $00, $E0
-    DB      $F0, $F0, $3F, $0F, $07, $03, $33, $3F
-    DB      $07, $07, $C0, $C0, $C0, $C0, $E0, $E0
-    DB      $00, $00, $3C, $80, $00, $00, $18, $F8
-    DB      $E0, $00, $3C, $1C, $00, $00, $00, $07
-    DB      $07, $07, $3C, $80, $00, $00, $00, $00
-    DB      $80, $80, $07, $0F, $0F, $3F, $3F, $1F
-    DB      $0F, $0F, $C0, $C0, $C0, $E0, $E0, $F0
-    DB      $70, $70, $00, $07, $07, $27, $70, $78
-    DB      $70, $30, $00, $00, $00, $00, $00, $0F
-    DB      $0F, $0F, $00, $60, $E0, $C0, $0C, $3C
-    DB      $3C, $B8, $00, $86, $0E, $0E, $0C, $00
-    DB      $80, $80, $03, $03, $1F, $1F, $0F, $03
-    DB      $02, $01, $39, $3F, $3F, $0F, $0F, $0F
-    DB      $0F, $0F, $C0, $C0, $F8, $F8, $F0, $C0
-    DB      $40, $80, $98, $FC, $FC, $F0, $F0, $F0
-    DB      $F0, $F0, $00, $00, $30, $39, $36, $06
-    DB      $01, $00, $00, $00, $00, $00, $00, $0E
-    DB      $00, $00, $00, $00, $00, $80, $60, $60
-    DB      $80, $00, $0C, $0C, $00, $00, $00, $60
-    DB      $70, $70, $1A, $1F, $1F, $0F, $0F, $07
-    DB      $01, $00, $40, $FC, $FC, $FC, $FC, $FC
-    DB      $F0, $F0, $00, $00, $00, $01, $1A, $01
-    DB      $00, $00, $00, $00, $00, $06, $03, $03
-    DB      $00, $00, $00, $00, $00, $80, $40, $98
-    DB      $00, $00, $00, $00, $00, $00, $00, $60
-    DB      $E0, $80, $00, $00, $00, $01, $06, $06
-    DB      $01, $00, $00, $00, $00, $00, $34, $3E
-    DB      $1E, $0C, $00, $00, $00, $80, $60, $60
-    DB      $80, $00, $00, $00, $00, $00, $2C, $7C
-    DB      $78, $30, $00, $10, $08, $20, $14, $22
-    DB      $08, $42, $00, $00, $24, $10, $28, $08
-    DB      $10, $2C, $00, $10, $2C, $30, $3C, $2A
-    DB      $18, $6E, $00, $0C, $3C, $78, $70, $60
-    DB      $60, $7E, $00, $00, $00, $03, $04, $0B
-    DB      $10, $1F, $00, $00, $00, $78, $78, $60
-    DB      $60, $60, $60, $00, $00, $00, $80, $40
-    DB      $20, $F8, $78, $78, $78, $18, $18, $18
-    DB      $1E, $06, $00, $00, $00, $00, $1C, $1C
-    DB      $7C, $60, $00, $0F, $1F, $3F, $7E, $7E
-    DB      $7F, $73, $37, $1F, $0F, $03, $00, $00
-    DB      $00, $00, $00, $00, $80, $C0, $60, $E0
-    DB      $F0, $F0, $CC, $CC, $3C, $3C, $F8, $F0
-    DB      $00, $00, $00, $00, $1E, $3B, $73, $F3
-    DB      $FF, $FF, $F3, $73, $3B, $1E, $00, $00
-    DB      $00, $00, $00, $00, $00, $00, $B8, $18
-    DB      $B8, $B8, $18, $B8, $00, $00, $00, $00
-    DB      $00, $0E, $1F, $1F, $3C, $3B, $34, $2F
-    DB      $00, $3C, $3F, $07, $00, $00, $00, $00
-    DB      $00, $00, $C0, $F8, $F8, $78, $A0, $D8
-    DB      $00, $F8, $F8, $E0, $07, $1F, $7F, $FF
-    DB      $FF, $7F, $3F, $FF, $FF, $7F, $3E, $3C
-    DB      $18, $00, $00, $00, $E0, $F8, $FC, $FF
-    DB      $FF, $FE, $FF, $FF, $FE, $64, $30, $30
-    DB      $60, $C0, $C0, $60, $00, $03, $07, $0F
-    DB      $1F, $19, $11, $1F, $0F, $0F, $05, $00
-    DB      $05, $07, $07, $00, $00, $C0, $E0, $F0
-    DB      $F8, $98, $88, $F8, $F0, $F0, $A0, $00
-    DB      $A0, $E0, $E0, $00, $01, $01, $03, $07
-    DB      $0F, $0F, $1F, $00, $00, $00, $03, $07
-    DB      $07, $0F, $1F, $00, $04, $03, $07, $07
-    DB      $0F, $1F, $1F, $18, $0C, $04, $06, $1B
-    DB      $0C, $08, $0B, $CD, $DC, $92, $3A, $AB
-    DB      $70, $3D, $F2, $DD, $88, $3E, $03, $32
-    DB      $AB, $70, $CD, $A1, $A7, $CD, $1F, $8C
-    DB      $3A, $5F, $70, $CB, $57, $28, $0E, $3A
-    DB      $01, $73, $FE, $80, $3E, $86, $38, $02
-    DB      $3E, $8C, $32, $EE, $73, $CD, $56, $91
-    DB      $21, $13, $89, $3A, $79, $70, $CB, $27
-    DB      $CD, $40, $A5, $5E, $23, $56, $EB, $CD
-    DB      $3A, $AE, $C3, $E8, $8D, $29, $89, $29
-    DB      $89, $2F, $8A, $59, $8C, $02, $8D, $83
-    DB      $8A, $83, $8A, $C5, $8C, $7F, $8B, $8E
-    DB      $8B, $6E, $8B, $3A, $5B, $70, $FE, $08
-    DB      $20, $16, $3A, $58, $70, $FE, $08, $20
-    DB      $0F, $01, $00, $F8, $3A, $57, $70, $FE
-    DB      $00, $28, $02, $06, $08, $C3, $D4, $8D
-    DB      $3A, $57, $70, $CD, $3B, $91, $20, $03
-    DB      $C3, $91, $8A, $3A, $EE, $73, $E6, $0F
-    DB      $CD, $44, $8C, $AF, $32, $77, $70, $01
-    DB      $00, $00, $3A, $EE, $73, $E6, $01, $28
-    DB      $43, $21, $58, $70, $7E, $23, $FE, $88
-    DB      $20, $3A, $7E, $FE, $89, $20, $35, $CD
-    DB      $20, $8B, $0E, $FC, $18, $0A, $CD, $20
-    DB      $8B, $0E, $02, $3E, $08, $32, $B2, $70
-    DB      $3E, $03, $F5, $78, $FE, $00, $28, $03
-    DB      $32, $78, $70, $F1, $32, $79, $70, $FE
-    DB      $02, $28, $0A, $3A, $AB, $70, $E6, $01
-    DB      $FE, $01, $C4, $37, $8F, $21, $76, $70
-    DB      $70, $23, $71, $C9, $3A, $EE, $73, $E6
-    DB      $04, $28, $1C, $21, $5B, $70, $7E, $23
-    DB      $FE, $10, $20, $05, $7E, $FE, $11, $28
-    DB      $BD, $FE, $C4, $20, $0A, $CD, $27, $8B
-    DB      $CD, $53, $8C, $3E, $04, $18, $26, $3A
-    DB      $EE, $73, $E6, $08, $28, $37, $01, $00
-    DB      $FE, $CD, $E3, $90, $30, $1A, $3E, $07
-    DB      $CD, $1A, $AC, $3A, $00, $73, $32, $7C
-    DB      $70, $3E, $12, $32, $72, $70, $21, $AE
-    DB      $93, $0E, $FF, $3E, $02, $C3, $88, $89
-    DB      $C5, $CD, $1E, $91, $C1, $38, $04, $3E
-    DB      $01, $18, $F2, $3A, $00, $73, $32, $7C
-    DB      $70, $3E, $06, $18, $F4, $3A, $EE, $73
-    DB      $E6, $02, $28, $0A, $01, $00, $02, $CD
-    DB      $E3, $90, $38, $C2, $18, $DA, $01, $00
-    DB      $00, $CD, $E3, $90, $38, $B8, $C5, $CD
-    DB      $1E, $91, $C1, $D2, $2F, $8C, $C3, $01
-    DB      $8A, $16, $04, $21, $72, $70, $7E, $FE
-    DB      $00, $28, $09, $35, $7E, $21, $AE, $93
-    DB      $CD, $40, $A5, $56, $3A, $76, $70, $FE
-    DB      $00, $28, $03, $32, $78, $70, $47, $4A
-    DB      $3A, $58, $70, $FE, $90, $CA, $0E, $8B
-    DB      $FE, $95, $20, $0A, $3A, $5B, $70, $FE
-    DB      $08, $28, $03, $C3, $5B, $8B, $3A, $76
-    DB      $70, $CB, $7F, $3A, $59, $70, $20, $03
-    DB      $3A, $57, $70, $FE, $08, $20, $04, $AF
-    DB      $32, $76, $70, $3A, $77, $70, $CB, $7F
-    DB      $C2, $39, $8C, $18, $03, $01, $04, $00
-    DB      $C5, $CD, $1E, $91, $C1, $38, $79, $FE
-    DB      $D2, $20, $09, $3E, $05, $CD, $1A, $AC
-    DB      $3E, $0A, $18, $56, $0E, $00, $3A, $00
-    DB      $73, $E6, $0F, $FE, $04, $28, $08, $FE
-    DB      $0C, $28, $04, $3D, $0D, $18, $F2, $C5
-    DB      $3E, $04, $CD, $1A, $AC, $3A, $A8, $71
-    DB      $FE, $0A, $20, $0F, $3A, $5F, $70, $CB
-    DB      $57, $28, $08, $CB, $97, $32, $5F, $70
-    DB      $CD, $7E, $8E, $3A, $7C, $70, $47, $3A
-    DB      $00, $73, $B8, $38, $2D, $90, $C1, $FE
-    DB      $1C, $38, $28, $3A, $79, $70, $FE, $05
-    DB      $28, $21, $3A, $00, $73, $47, $3A, $04
-    DB      $73, $32, $00, $73, $78, $32, $04, $73
-    DB      $3E, $09, $F5, $CD, $C2, $8D, $3E, $70
-    DB      $32, $A9, $70, $F1, $01, $00, $00, $C3
-    DB      $88, $89, $C1, $3E, $01, $C3, $92, $89
-    DB      $3A, $5B, $70, $FE, $90, $C2, $57, $8B
-    DB      $CD, $44, $8B, $C5, $CD, $27, $8B, $C1
-    DB      $3A, $5B, $70, $30, $3C, $3E, $04, $C3
-    DB      $31, $8C, $E5, $0E, $0F, $1E, $07, $18
-    DB      $05, $E5, $0E, $0C, $1E, $04, $21, $01
-    DB      $73, $7E, $E6, $0F, $FE, $08, $30, $01
-    DB      $4B, $7E, $E6, $F0, $81, $77, $23, $23
-    DB      $23, $23, $77, $E1, $37, $C9, $3A, $76
-    DB      $70, $FE, $00, $28, $08, $3A, $72, $70
-    DB      $FE, $0F, $30, $01, $C9, $F1, $C3, $39
-    DB      $8C, $FE, $95, $20, $F9, $CD, $44, $8B
-    DB      $CD, $27, $8B, $01, $04, $00, $3E, $06
-    DB      $CD, $1A, $AC, $3E, $05, $C3, $3C, $8C
-    DB      $21, $00, $73, $35, $23, $23, $36, $78
-    DB      $23, $36, $0E, $AF, $32, $07, $73, $18
-    DB      $0F, $3A, $A9, $70, $CB, $57, $20, $08
-    DB      $E6, $03, $21, $A6, $93, $CD, $05, $93
-    DB      $21, $A9, $70, $35, $F2, $36, $8C, $21
-    DB      $49, $70, $7E, $FE, $00, $20, $44, $36
-    DB      $06, $AF, $32, $03, $73, $32, $07, $73
-    DB      $CD, $D6, $1F, $21, $00, $00, $22, $BD
-    DB      $70, $22, $BE, $70, $01, $09, $01, $21
-    DB      $09, $94, $11, $6C, $01, $CD, $A7, $AE
-    DB      $CD, $1F, $8C, $3A, $EE, $73, $FE, $C0
-    DB      $20, $F6, $21, $5F, $70, $CB, $46, $20
-    DB      $EF, $CB, $C6, $3A, $A6, $71, $FE, $01
-    DB      $20, $F9, $21, $00, $00, $22, $17, $70
-    DB      $22, $18, $70, $21, $03, $73, $36, $06
-    DB      $2E, $07, $36, $0B, $21, $7D, $70, $7E
+    RET                                     ; RET: return from SUB_8413
+    DB      $90, $A7, $4A, $8B, $B1, $F0, $F0, $F0 ; sprite bitmap data: player/enemy tiles, row 0-7 (start)
+    DB      $F0, $F0, $F0, $F0, $20, $90, $E0, $40 ; sprite bitmap data: continued row 8-15
+    DB      $40, $40, $E0, $90, $20, $20, $40, $90 ; sprite bitmap data: continued row 16-23
+    DB      $E0, $4A, $90, $60, $40, $40, $00, $00 ; sprite bitmap data: continued row 24-31
+    DB      $00, $00, $FB, $FB, $FB, $00, $7F, $7F ; sprite bitmap data: continued row 32-39
+    DB      $7F, $00, $FB, $FB, $FB, $00, $00, $00 ; sprite bitmap data: continued row 40-47
+    DB      $00, $00, $F0, $F0, $F0, $00, $F0, $F0 ; sprite bitmap data: continued row 48-55
+    DB      $F0, $00, $0B, $0B, $0B, $00, $0F, $0F ; sprite bitmap data: continued row 56-63
+    DB      $0F, $00, $00, $00, $00, $00, $7F, $7F ; sprite bitmap data: continued row 64-71
+    DB      $7F, $00, $38, $7C, $FE, $FE, $EE, $C6 ; sprite bitmap data: continued row 72-79
+    DB      $C6, $C6, $38, $78, $F8, $F8, $F8, $F8 ; sprite bitmap data: continued row 80-87
+    DB      $38, $38, $38, $7C, $FE, $FE, $EE, $C6 ; sprite bitmap data: continued row 88-95
+    DB      $C6, $0E, $38, $7C, $FE, $FE, $FE, $C6 ; sprite bitmap data: continued row 96-103
+    DB      $06, $1C, $1C, $3C, $3C, $7C, $7C, $EC ; sprite bitmap data: continued row 104-111
+    DB      $EC, $CC, $FE, $FE, $FE, $FE, $C6, $E0 ; sprite bitmap data: continued row 112-119
+    DB      $F8, $3E, $38, $7C, $FE, $FE, $EE, $C0 ; sprite bitmap data: continued row 120-127
+    DB      $F8, $FC, $FE, $FE, $FE, $FE, $FE, $0E ; sprite bitmap data: continued row 128-135
+    DB      $0E, $1E, $38, $7C, $FE, $FE, $EE, $C6 ; sprite bitmap data: continued row 136-143
+    DB      $EE, $7C, $38, $7C, $FE, $FE, $EE, $C6 ; sprite bitmap data: continued row 144-151
+    DB      $EE, $7E, $EE, $FE, $FE, $FE, $FE, $FE ; sprite bitmap data: continued row 152-159
+    DB      $7C, $38, $38, $38, $38, $38, $FE, $FE ; sprite bitmap data: continued row 160-167
+    DB      $FE, $FE, $1E, $3C, $78, $70, $FE, $FE ; sprite bitmap data: continued row 168-175
+    DB      $FE, $FE, $1C, $06, $C6, $EE, $FE, $FE ; sprite bitmap data: continued row 176-183
+    DB      $7C, $38, $CC, $FE, $FE, $FE, $FE, $FE ; sprite bitmap data: continued row 184-191
+    DB      $18, $18, $0E, $C6, $C6, $EE, $FE, $FE ; sprite bitmap data: continued row 192-199
+    DB      $7C, $38, $EE, $C6, $EE, $FE, $FE, $FE ; sprite bitmap data: continued row 200-207
+    DB      $7C, $38, $1E, $1C, $3C, $38, $78, $78 ; sprite bitmap data: continued row 208-215
+    DB      $70, $70, $EE, $C6, $EE, $FE, $FE, $FE ; sprite bitmap data: continued row 216-223
+    DB      $7C, $38, $3E, $06, $C6, $EE, $FE, $FE ; sprite bitmap data: continued row 224-231
+    DB      $7C, $38, $00, $00, $3C, $3C, $7E, $7E ; sprite bitmap data: continued row 232-239
+    DB      $00, $00, $08, $06, $07, $07, $0F, $1F ; sprite bitmap data: continued row 240-247
+    DB      $7F, $FF, $00, $00, $24, $33, $71, $FD ; sprite bitmap data: continued row 248-255
+    DB      $FF, $FF, $00, $00, $01, $81, $F1, $F9 ; sprite bitmap data: continued row 256-263
+    DB      $FB, $FF, $00, $80, $00, $81, $C2, $E6 ; sprite bitmap data: continued row 264-271
+    DB      $EF, $FF, $C0, $C0, $3F, $3F, $3F, $3F ; sprite bitmap data: continued row 272-279
+    DB      $03, $03, $C0, $C0, $FF, $FF, $FF, $FF ; sprite bitmap data: continued row 280-287
+    DB      $03, $03, $C0, $C0, $FC, $FC, $FC, $FC ; sprite bitmap data: continued row 288-295
+    DB      $03, $03, $3F, $FF, $FF, $3F, $00, $00 ; sprite bitmap data: continued row 296-303
+    DB      $03, $03, $FF, $FF, $FF, $FF, $C0, $C0 ; sprite bitmap data: continued row 304-311
+    DB      $00, $00, $FC, $FF, $FF, $FC, $C0, $C0 ; sprite bitmap data: continued row 312-319
+    DB      $0C, $0C, $3F, $3F, $3F, $3F, $C0, $C0 ; sprite bitmap data: continued row 320-327
+    DB      $0C, $0C, $FF, $FF, $FF, $FF, $30, $30 ; sprite bitmap data: continued row 328-335
+    DB      $03, $03, $FC, $FC, $FC, $FC, $30, $30 ; sprite bitmap data: continued row 336-343
+    DB      $3F, $3F, $3F, $3F, $0C, $0C, $30, $30 ; sprite bitmap data: continued row 344-351
+    DB      $FF, $FF, $FF, $FF, $0C, $0C, $30, $30 ; sprite bitmap data: continued row 352-359
+    DB      $FC, $FC, $FC, $FC, $0C, $0C, $00, $7E ; sprite bitmap data: continued row 360-367
+    DB      $81, $BD, $BD, $BD, $BD, $BD, $BD, $BD ; sprite bitmap data: continued row 368-375
+    DB      $BD, $81, $7E, $00, $00, $00, $03, $03 ; sprite bitmap data: continued row 376-383
+    DB      $0F, $0F, $03, $03, $03, $00, $80, $80 ; sprite bitmap data: continued row 384-391
+    DB      $E0, $E0, $80, $80, $80, $00, $30, $30 ; sprite bitmap data: continued row 392-399
+    DB      $30, $30, $3F, $30, $30, $30, $0C, $0C ; sprite bitmap data: continued row 400-407
+    DB      $0C, $0C, $FC, $0C, $0C, $0C, $7C, $6C ; sprite bitmap data: continued row 408-415
+    DB      $6C, $6C, $6C, $7C, $10, $10, $7C, $6C ; sprite bitmap data: continued row 416-423
+    DB      $6C, $6C, $6C, $7C, $FF, $66, $C3, $66 ; sprite bitmap data: continued row 424-431
+    DB      $FF, $00, $00, $00, $FF, $66, $18, $66 ; sprite bitmap data: continued row 432-439
+    DB      $FF, $00, $00, $00, $00, $00, $00, $00 ; sprite bitmap data: continued row 440-447
+    DB      $00, $00, $00, $08, $14, $23, $09, $17 ; sprite bitmap data: continued row 448-455
+    DB      $23, $0B, $17, $21, $00, $00, $00, $00 ; sprite bitmap data: continued row 456-463
+    DB      $00, $10, $28, $44, $90, $A8, $C4, $D0 ; sprite bitmap data: continued row 464-471
+    DB      $E8, $C4, $C0, $80, $18, $18, $18, $18 ; sprite bitmap data: continued row 472-479
+    DB      $0C, $0C, $0C, $0C, $07, $0F, $1C, $1C ; sprite bitmap data: continued row 480-487
+    DB      $0F, $03, $03, $01, $E0, $F0, $38, $38 ; sprite bitmap data: continued row 488-495
+    DB      $F0, $C0, $C0, $80, $01, $01, $03, $01 ; sprite bitmap data: continued row 496-503
+    DB      $03, $01, $00, $00, $80, $80, $80, $80 ; sprite bitmap data: continued row 504-511
+    DB      $80, $80, $00, $00, $3C, $1C, $00, $00 ; sprite bitmap data: continued row 512-519
+    DB      $00, $38, $3C, $3C, $02, $03, $03, $03 ; sprite bitmap data: continued row 520-527
+    DB      $03, $03, $03, $03, $00, $00, $80, $80 ; sprite bitmap data: continued row 528-535
+    DB      $80, $80, $80, $80, $00, $2D, $3F, $3F ; sprite bitmap data: continued row 536-543
+    DB      $2D, $0C, $0C, $0C, $0C, $0C, $0C, $0C ; sprite bitmap data: continued row 544-551
+    DB      $0C, $00, $00, $00, $1F, $0F, $03, $03 ; sprite bitmap data: continued row 552-559
+    DB      $03, $01, $00, $00, $00, $03, $0C, $0F ; sprite bitmap data: continued row 560-567
+    DB      $00, $00, $00, $00, $00, $C0, $E0, $F0 ; sprite bitmap data: continued row 568-575
+    DB      $30, $F0, $07, $1E, $18, $18, $18, $0C ; sprite bitmap data: continued row 576-583
+    DB      $06, $03, $C0, $00, $00, $00, $01, $03 ; sprite bitmap data: continued row 584-591
+    DB      $0E, $FC, $00, $00, $00, $03, $0C, $3F ; sprite bitmap data: continued row 592-599
+    DB      $00, $00, $C0, $00, $00, $00, $04, $0C ; sprite bitmap data: continued row 600-607
+    DB      $0C, $FC, $7E, $7E, $7E, $7E, $7E, $7E ; sprite bitmap data: continued row 608-615
+    DB      $7E, $7E, $00, $07, $0F, $09, $29, $6F ; sprite bitmap data: continued row 616-623
+    DB      $E9, $E9, $00, $E0, $E0, $28, $2C, $EE ; sprite bitmap data: continued row 624-631
+    DB      $2F, $2F, $EF, $EF, $EF, $EF, $EF, $EF ; sprite bitmap data: continued row 632-639
+    DB      $EF, $EF, $FF, $FF, $7E, $7E, $3C, $3C ; sprite bitmap data: continued row 640-647
+    DB      $3C, $3C, $07, $07, $1F, $3F, $38, $08 ; sprite bitmap data: continued row 648-655
+    DB      $00, $1F, $3F, $0F, $07, $03, $33, $3F ; sprite bitmap data: continued row 656-663
+    DB      $3C, $38, $C0, $C0, $F8, $F8, $80, $00 ; sprite bitmap data: continued row 664-671
+    DB      $00, $E0, $C0, $C0, $C0, $C0, $E0, $E0 ; sprite bitmap data: continued row 672-679
+    DB      $E0, $E0, $00, $07, $07, $07, $00, $00 ; sprite bitmap data: continued row 680-687
+    DB      $30, $38, $3C, $1C, $00, $00, $00, $38 ; sprite bitmap data: continued row 688-695
+    DB      $3C, $1C, $00, $60, $E0, $C0, $00, $B0 ; sprite bitmap data: continued row 696-703
+    DB      $30, $BC, $3C, $80, $00, $00, $00, $E0 ; sprite bitmap data: continued row 704-711
+    DB      $F0, $F0, $3F, $0F, $07, $03, $33, $3F ; sprite bitmap data: continued row 712-719
+    DB      $07, $07, $C0, $C0, $C0, $C0, $E0, $E0 ; sprite bitmap data: continued row 720-727
+    DB      $00, $00, $3C, $80, $00, $00, $18, $F8 ; sprite bitmap data: continued row 728-735
+    DB      $E0, $00, $3C, $1C, $00, $00, $00, $07 ; sprite bitmap data: continued row 736-743
+    DB      $07, $07, $3C, $80, $00, $00, $00, $00 ; sprite bitmap data: continued row 744-751
+    DB      $80, $80, $07, $0F, $0F, $3F, $3F, $1F ; sprite bitmap data: continued row 752-759
+    DB      $0F, $0F, $C0, $C0, $C0, $E0, $E0, $F0 ; sprite bitmap data: continued row 760-767
+    DB      $70, $70, $00, $07, $07, $27, $70, $78 ; sprite bitmap data: continued row 768-775
+    DB      $70, $30, $00, $00, $00, $00, $00, $0F ; sprite bitmap data: continued row 776-783
+    DB      $0F, $0F, $00, $60, $E0, $C0, $0C, $3C ; sprite bitmap data: continued row 784-791
+    DB      $3C, $B8, $00, $86, $0E, $0E, $0C, $00 ; sprite bitmap data: continued row 792-799
+    DB      $80, $80, $03, $03, $1F, $1F, $0F, $03 ; sprite bitmap data: continued row 800-807
+    DB      $02, $01, $39, $3F, $3F, $0F, $0F, $0F ; sprite bitmap data: continued row 808-815
+    DB      $0F, $0F, $C0, $C0, $F8, $F8, $F0, $C0 ; sprite bitmap data: continued row 816-823
+    DB      $40, $80, $98, $FC, $FC, $F0, $F0, $F0 ; sprite bitmap data: continued row 824-831
+    DB      $F0, $F0, $00, $00, $30, $39, $36, $06 ; sprite bitmap data: continued row 832-839
+    DB      $01, $00, $00, $00, $00, $00, $00, $0E ; sprite bitmap data: continued row 840-847
+    DB      $00, $00, $00, $00, $00, $80, $60, $60 ; sprite bitmap data: continued row 848-855
+    DB      $80, $00, $0C, $0C, $00, $00, $00, $60 ; sprite bitmap data: continued row 856-863
+    DB      $70, $70, $1A, $1F, $1F, $0F, $0F, $07 ; sprite bitmap data: continued row 864-871
+    DB      $01, $00, $40, $FC, $FC, $FC, $FC, $FC ; sprite bitmap data: continued row 872-879
+    DB      $F0, $F0, $00, $00, $00, $01, $1A, $01 ; sprite bitmap data: continued row 880-887
+    DB      $00, $00, $00, $00, $00, $06, $03, $03 ; sprite bitmap data: continued row 888-895
+    DB      $00, $00, $00, $00, $00, $80, $40, $98 ; sprite bitmap data: continued row 896-903
+    DB      $00, $00, $00, $00, $00, $00, $00, $60 ; sprite bitmap data: continued row 904-911
+    DB      $E0, $80, $00, $00, $00, $01, $06, $06 ; sprite bitmap data: continued row 912-919
+    DB      $01, $00, $00, $00, $00, $00, $34, $3E ; sprite bitmap data: continued row 920-927
+    DB      $1E, $0C, $00, $00, $00, $80, $60, $60 ; sprite bitmap data: continued row 928-935
+    DB      $80, $00, $00, $00, $00, $00, $2C, $7C ; sprite bitmap data: continued row 936-943
+    DB      $78, $30, $00, $10, $08, $20, $14, $22 ; sprite bitmap data: continued row 944-951
+    DB      $08, $42, $00, $00, $24, $10, $28, $08 ; sprite bitmap data: continued row 952-959
+    DB      $10, $2C, $00, $10, $2C, $30, $3C, $2A ; sprite bitmap data: continued row 960-967
+    DB      $18, $6E, $00, $0C, $3C, $78, $70, $60 ; sprite bitmap data: continued row 968-975
+    DB      $60, $7E, $00, $00, $00, $03, $04, $0B ; sprite bitmap data: continued row 976-983
+    DB      $10, $1F, $00, $00, $00, $78, $78, $60 ; sprite bitmap data: continued row 984-991
+    DB      $60, $60, $60, $00, $00, $00, $80, $40 ; sprite bitmap data: continued row 992-999
+    DB      $20, $F8, $78, $78, $78, $18, $18, $18 ; sprite bitmap data: continued row 1000-1007
+    DB      $1E, $06, $00, $00, $00, $00, $1C, $1C ; sprite bitmap data: continued row 1008-1015
+    DB      $7C, $60, $00, $0F, $1F, $3F, $7E, $7E ; sprite bitmap data: continued row 1016-1023
+    DB      $7F, $73, $37, $1F, $0F, $03, $00, $00 ; sprite bitmap data: continued row 1024-1031
+    DB      $00, $00, $00, $00, $80, $C0, $60, $E0 ; sprite bitmap data: continued row 1032-1039
+    DB      $F0, $F0, $CC, $CC, $3C, $3C, $F8, $F0 ; sprite bitmap data: continued row 1040-1047
+    DB      $00, $00, $00, $00, $1E, $3B, $73, $F3 ; sprite bitmap data: continued row 1048-1055
+    DB      $FF, $FF, $F3, $73, $3B, $1E, $00, $00 ; sprite bitmap data: continued row 1056-1063
+    DB      $00, $00, $00, $00, $00, $00, $B8, $18 ; sprite bitmap data: continued row 1064-1071
+    DB      $B8, $B8, $18, $B8, $00, $00, $00, $00 ; sprite bitmap data: continued row 1072-1079
+    DB      $00, $0E, $1F, $1F, $3C, $3B, $34, $2F ; sprite bitmap data: continued row 1080-1087
+    DB      $00, $3C, $3F, $07, $00, $00, $00, $00 ; sprite bitmap data: continued row 1088-1095
+    DB      $00, $00, $C0, $F8, $F8, $78, $A0, $D8 ; sprite bitmap data: continued row 1096-1103
+    DB      $00, $F8, $F8, $E0, $07, $1F, $7F, $FF ; sprite bitmap data: continued row 1104-1111
+    DB      $FF, $7F, $3F, $FF, $FF, $7F, $3E, $3C ; sprite bitmap data: continued row 1112-1119
+    DB      $18, $00, $00, $00, $E0, $F8, $FC, $FF ; sprite bitmap data: continued row 1120-1127
+    DB      $FF, $FE, $FF, $FF, $FE, $64, $30, $30 ; sprite bitmap data: continued row 1128-1135
+    DB      $60, $C0, $C0, $60, $00, $03, $07, $0F ; sprite bitmap data: continued row 1136-1143
+    DB      $1F, $19, $11, $1F, $0F, $0F, $05, $00 ; sprite bitmap data: continued row 1144-1151
+    DB      $05, $07, $07, $00, $00, $C0, $E0, $F0 ; sprite bitmap data: continued row 1152-1159
+    DB      $F8, $98, $88, $F8, $F0, $F0, $A0, $00 ; sprite bitmap data: last rows + game logic Z80 start
+    DB      $A0, $E0, $E0, $00, $01, $01, $03, $07 ; inline Z80: game main loop start / CALL $92DC ...
+    DB      $0F, $0F, $1F, $00, $00, $00, $03, $07 ; inline Z80: LD A,$03 / LD ($70AB) / CALL $A7A1 ...
+    DB      $07, $0F, $1F, $00, $04, $03, $07, $07 ; inline Z80: CALL $8C1F / LD A,($705F) ...
+    DB      $0F, $1F, $1F, $18, $0C, $04, $06, $1B ; inline Z80: BIT 0,($705F) / JR Z / LD A,($7301) ...
+    DB      $0C, $08, $0B, $CD, $DC, $92, $3A, $AB ; inline Z80: CALL $918C / LD HL,$8913 ...
+    DB      $70, $3D, $F2, $DD, $88, $3E, $03, $32 ; inline Z80: LD A,($7079) / RLCA / CALL $405A ...
+    DB      $AB, $70, $CD, $A1, $A7, $CD, $1F, $8C ; inline Z80: LD HL,$8921 / LD A,($7079) / RLCA ...
+    DB      $3A, $5F, $70, $CB, $57, $28, $0E, $3A ; inline Z80: CALL $A540 / LD E,(HL) / LD D,H / CALL $AE3A
+    DB      $01, $73, $FE, $80, $3E, $86, $38, $02 ; inline Z80: JP $8DE8 -- tail to main game loop
+    DB      $3E, $8C, $32, $EE, $73, $CD, $56, $91 ; game object handler table: entries $88 (lo/hi pairs)
+    DB      $21, $13, $89, $3A, $79, $70, $CB, $27 ; game object handler table: entries continued
+    DB      $CD, $40, $A5, $5E, $23, $56, $EB, $CD ; inline Z80: LD A,($705B) / CP $08 / JR NZ ...
+    DB      $3A, $AE, $C3, $E8, $8D, $29, $89, $29 ; inline Z80: LD A,($7058) / CP $08 / JR NZ ...
+    DB      $89, $2F, $8A, $59, $8C, $02, $8D, $83 ; inline Z80: LD BC,$F800 / LD A,($7057) ...
+    DB      $8A, $83, $8A, $C5, $8C, $7F, $8B, $8E ; inline Z80: JR NZ / LD B,$08 / JP $8DD4 ...
+    DB      $8B, $6E, $8B, $3A, $5B, $70, $FE, $08 ; inline Z80: LD A,($7057) / CALL $913B ...
+    DB      $20, $16, $3A, $58, $70, $FE, $08, $20 ; inline Z80: JP $8A91 / LD A,($7373) / AND $0F ...
+    DB      $0F, $01, $00, $F8, $3A, $57, $70, $FE ; inline Z80: CALL $8C44 / XOR A / LD ($7077) ...
+    DB      $00, $28, $02, $06, $08, $C3, $D4, $8D ; inline Z80: AND $01 / JR Z / LD HL,($7058) ...
+    DB      $3A, $57, $70, $CD, $3B, $91, $20, $03 ; inline Z80: JR NZ / LD A,(HL) / CP $88 ...
+    DB      $C3, $91, $8A, $3A, $EE, $73, $E6, $0F ; inline Z80: JR NZ / CALL $8B20 / LD C,$FC / JR ...
+    DB      $CD, $44, $8C, $AF, $32, $77, $70, $01 ; inline Z80: CALL $8B20 / LD C,$02 / LD A,$08 ...
+    DB      $00, $00, $3A, $EE, $73, $E6, $01, $28 ; inline Z80: LD A,$03 / PUSH AF / LD A,B ...
+    DB      $43, $21, $58, $70, $7E, $23, $FE, $88 ; inline Z80: LD ($7078) / POP AF / LD ($7079) ...
+    DB      $20, $3A, $7E, $FE, $89, $20, $35, $CD ; inline Z80: LD A,($7079) / CP $02 / JR NZ ...
+    DB      $20, $8B, $0E, $FC, $18, $0A, $CD, $20 ; inline Z80: LD A,($70AB) / AND $01 / CP $01 ...
+    DB      $8B, $0E, $02, $3E, $08, $32, $B2, $70 ; inline Z80: CALL $8F37 / LD HL,($7076) / LD (HL),B ...
+    DB      $3E, $03, $F5, $78, $FE, $00, $28, $03 ; inline Z80: RET / LD A,($7373) / AND $04 ...
+    DB      $32, $78, $70, $F1, $32, $79, $70, $FE ; inline Z80: JR NZ / LD HL,($705B) ...
+    DB      $02, $28, $0A, $3A, $AB, $70, $E6, $01 ; inline Z80: CP $11 / JR Z / CP $C4 / JR NZ ...
+    DB      $FE, $01, $C4, $37, $8F, $21, $76, $70 ; inline Z80: CALL $8B27 / CALL $8C53 ...
+    DB      $70, $23, $71, $C9, $3A, $EE, $73, $E6 ; inline Z80: CALL $8C53 / LD A,$04 / JR ...
+    DB      $04, $28, $1C, $21, $5B, $70, $7E, $23 ; inline Z80: AND $08 / JR Z / LD BC,$00FE ...
+    DB      $FE, $10, $20, $05, $7E, $FE, $11, $28 ; inline Z80: CALL $90E3 / JR NC / LD A,$07 ...
+    DB      $BD, $FE, $C4, $20, $0A, $CD, $27, $8B ; inline Z80: CALL $AC1A / LD A,($7300) ...
+    DB      $CD, $53, $8C, $3E, $04, $18, $26, $3A ; inline Z80: LD A,$12 / LD ($7072) / LD HL,$93AE ...
+    DB      $EE, $73, $E6, $08, $28, $37, $01, $00 ; inline Z80: LD C,$FF / LD A,$02 / JP $8988 ...
+    DB      $FE, $CD, $E3, $90, $30, $1A, $3E, $07 ; inline Z80: PUSH BC / CALL $911E / POP BC / JR C ...
+    DB      $CD, $1A, $AC, $3A, $00, $73, $32, $7C ; inline Z80: JR $8A91 / LD A,($7300) ...
+    DB      $70, $3E, $12, $32, $72, $70, $21, $AE ; inline Z80: LD A,$06 / JR ...
+    DB      $93, $0E, $FF, $3E, $02, $C3, $88, $89 ; inline Z80: AND $02 / JR Z / LD BC,$0200 ...
+    DB      $C5, $CD, $1E, $91, $C1, $38, $04, $3E ; inline Z80: CALL $90E3 / JR NC / PUSH BC ...
+    DB      $01, $18, $F2, $3A, $00, $73, $32, $7C ; inline Z80: CALL $911E / POP BC / JP NC ...
+    DB      $70, $3E, $06, $18, $F4, $3A, $EE, $73 ; inline Z80: JP $8A01 / LD D,$04 ...
+    DB      $E6, $02, $28, $0A, $01, $00, $02, $CD ; inline Z80: LD A,($7072) / CP $00 / JR Z ...
+    DB      $E3, $90, $38, $C2, $18, $DA, $01, $00 ; inline Z80: DEC (HL) / LD A,(HL) / LD HL,$93AE ...
+    DB      $00, $CD, $E3, $90, $38, $B8, $C5, $CD ; inline Z80: CALL $A540 / LD A,($7076) / CP $90 ...
+    DB      $1E, $91, $C1, $D2, $2F, $8C, $C3, $01 ; inline Z80: CP $95 / JR NZ / LD A,($705B) ...
+    DB      $8A, $16, $04, $21, $72, $70, $7E, $FE ; inline Z80: CP $08 / JR Z / CP $08 ...
+    DB      $00, $28, $09, $35, $7E, $21, $AE, $93 ; inline Z80: CB $7F / LD A,($7059) / JR NZ ...
+    DB      $CD, $40, $A5, $56, $3A, $76, $70, $FE ; inline Z80: LD A,($7076) / CB $7F / LD A,($7077) ...
+    DB      $00, $28, $03, $32, $78, $70, $47, $4A ; inline Z80: AND $08 / RES ...
+    DB      $3A, $58, $70, $FE, $90, $CA, $0E, $8B ; inline Z80: LD C,$FF / XOR A / LD ($7076) ...
+    DB      $FE, $95, $20, $0A, $3A, $5B, $70, $FE ; inline Z80: CB $7F / JP NZ / LD BC,$0000 ...
+    DB      $08, $28, $03, $C3, $5B, $8B, $3A, $76 ; inline Z80: CALL $911E / POP BC / JR NC ...
+    DB      $70, $CB, $7F, $3A, $59, $70, $20, $03 ; inline Z80: CP $D2 / JR NZ / LD A,$05 ...
+    DB      $3A, $57, $70, $FE, $08, $20, $04, $AF ; inline Z80: CALL $AC1A / LD A,$0A / JR ...
+    DB      $32, $76, $70, $3A, $77, $70, $CB, $7F ; inline Z80: LD C,$00 / LD A,($7300) ...
+    DB      $C2, $39, $8C, $18, $03, $01, $04, $00 ; inline Z80: AND $0F / CP $04 / JR Z / CP $0C ...
+    DB      $C5, $CD, $1E, $91, $C1, $38, $79, $FE ; inline Z80: DEC A / DEC C / JR / PUSH BC ...
+    DB      $D2, $20, $09, $3E, $05, $CD, $1A, $AC ; inline Z80: CALL $AC1A / LD A,($71A8) ...
+    DB      $3E, $0A, $18, $56, $0E, $00, $3A, $00 ; inline Z80: CP $0A / JR NZ / LD A,($705F) ...
+    DB      $73, $E6, $0F, $FE, $04, $28, $08, $FE ; inline Z80: BIT 0 / JR Z / RES 2 / LD ($705F) ...
+    DB      $0C, $28, $04, $3D, $0D, $18, $F2, $C5 ; inline Z80: LD A,($707C) / LD B,A / LD A,($7300) ...
+    DB      $3E, $04, $CD, $1A, $AC, $3A, $A8, $71 ; inline Z80: JR NC / NEG / POP BC / CP $1C ...
+    DB      $FE, $0A, $20, $0F, $3A, $5F, $70, $CB ; inline Z80: JR Z / LD A,($7079) / CP $05 / JR Z ...
+    DB      $57, $28, $08, $CB, $97, $32, $5F, $70 ; inline Z80: LD B,A / LD A,($7304) / LD ($7300) ...
+    DB      $CD, $7E, $8E, $3A, $7C, $70, $47, $3A ; inline Z80: LD ($7304) / LD A,$09 / PUSH AF ...
+    DB      $00, $73, $B8, $38, $2D, $90, $C1, $FE ; inline Z80: CALL $8DC2 / LD A,$70 / LD ($70A9) ...
+    DB      $1C, $38, $28, $3A, $79, $70, $FE, $05 ; inline Z80: LD BC,$0000 / JP $8988 ...
+    DB      $28, $21, $3A, $00, $73, $47, $3A, $04 ; inline Z80: LD A,$01 / JP $8992 ...
+    DB      $73, $32, $00, $73, $78, $32, $04, $73 ; inline Z80: LD A,($705B) / CP $90 / JP NZ ...
+    DB      $3E, $09, $F5, $CD, $C2, $8D, $3E, $70 ; inline Z80: CALL $8B44 / PUSH BC / CALL $8B27 ...
+    DB      $32, $A9, $70, $F1, $01, $00, $00, $C3 ; inline Z80: LD A,($705B) / JR NC / LD A,$04 ...
+    DB      $88, $89, $C1, $3E, $01, $C3, $92, $89 ; inline Z80: JP $8C31 / PUSH HL / LD C,$0F ...
+    DB      $3A, $5B, $70, $FE, $90, $C2, $57, $8B ; inline Z80: LD E,$07 / JR / PUSH HL / LD C,$0C ...
+    DB      $CD, $44, $8B, $C5, $CD, $27, $8B, $C1 ; inline Z80: LD HL,($7301) / AND $0F / CP $08 ...
+    DB      $3A, $5B, $70, $30, $3C, $3E, $04, $C3 ; inline Z80: LD C,A / AND $F0 / ADD A,B / LD (HL) ...
+    DB      $31, $8C, $E5, $0E, $0F, $1E, $07, $18 ; inline Z80: INC HL (x4) / LD (HL),A / POP HL ...
+    DB      $05, $E5, $0E, $0C, $1E, $04, $21, $01 ; inline Z80: LD A,($7076) / CP $00 / JR Z ...
+    DB      $73, $7E, $E6, $0F, $FE, $08, $30, $01 ; inline Z80: CP $0F / JR NC / POP AF / JP $8C39 ...
+    DB      $4B, $7E, $E6, $F0, $81, $77, $23, $23 ; inline Z80: CP $95 / JR NZ / CALL $8B44 ...
+    DB      $23, $23, $77, $E1, $37, $C9, $3A, $76 ; inline Z80: CALL $8B27 / LD BC,$0400 / LD A,$06 ...
+    DB      $70, $FE, $00, $28, $08, $3A, $72, $70 ; inline Z80: CALL $AC1A / LD A,$05 / JP $8C3C ...
+    DB      $FE, $0F, $30, $01, $C9, $F1, $C3, $39 ; inline Z80: LD HL,$7300 / DEC (HL) / INC HL ...
+    DB      $8C, $FE, $95, $20, $F9, $CD, $44, $8B ; inline Z80: INC HL / LD (HL),$0E / XOR A ...
+    DB      $CD, $27, $8B, $01, $04, $00, $3E, $06 ; inline Z80: LD A,($70A9) / BIT 0 / JR NZ ...
+    DB      $CD, $1A, $AC, $3E, $05, $C3, $3C, $8C ; inline Z80: AND $03 / LD HL,$93A6 / CALL $9305 ...
+    DB      $21, $00, $73, $35, $23, $23, $36, $78 ; inline Z80: LD HL,($70A9) / DEC (HL) ...
+    DB      $23, $36, $0E, $AF, $32, $07, $73, $18 ; inline Z80: LD HL,($7049) / CP $00 / JR NZ ...
+    DB      $0F, $3A, $A9, $70, $CB, $57, $20, $08 ; inline Z80: LD ($7003) / XOR A / LD ($7303) ...
+    DB      $E6, $03, $21, $A6, $93, $CD, $05, $93 ; inline Z80: CALL $1FD6 / LD HL,$0000 / LD ($70BD) ...
+    DB      $21, $A9, $70, $35, $F2, $36, $8C, $21 ; inline Z80: LD ($70BE) / LD BC,$0109 / LD HL,$9409 ...
+    DB      $49, $70, $7E, $FE, $00, $20, $44, $36 ; inline Z80: LD DE,$016C / CALL $AEA7 ...
+    DB      $06, $AF, $32, $03, $73, $32, $07, $73 ; inline Z80: CALL $8C1F / LD A,($7373) / CP $C0 ...
+    DB      $CD, $D6, $1F, $21, $00, $00, $22, $BD ; inline Z80: JR NZ / LD HL,($705F) / BIT 0 ...
+    DB      $70, $22, $BE, $70, $01, $09, $01, $21 ; inline Z80: JR NZ / SET 6 / LD A,($71A6) ...
+    DB      $09, $94, $11, $6C, $01, $CD, $A7, $AE ; inline Z80: CP $01 / JR NZ / LD HL,$0000 ...
+    DB      $CD, $1F, $8C, $3A, $EE, $73, $FE, $C0 ; inline Z80: LD ($7017) / LD ($7018) / LD HL,($7303) ...
+    DB      $20, $F6, $21, $5F, $70, $CB, $46, $20 ; inline Z80: LD ($7307) / LD (HL),$06 ...
+    DB      $EF, $CB, $C6, $3A, $A6, $71, $FE, $01 ; inline Z80: LD HL,($707D) / LD ($7077) ...
+    DB      $20, $F9, $21, $00, $00, $22, $17, $70 ; inline Z80: continued -- LD ($7079) ...
+    DB      $22, $18, $70, $21, $03, $73, $36, $06 ; inline Z80: LD HL,($707B) / LD ($7075) / LD DE,$7300 ...
+    DB      $2E, $07, $36, $0B, $21, $7D, $70, $7E ; inline Z80: LD HL,($704B) / LD BC,$0008 / LDIR ...
     DB      $32, $77, $70, $23, $7E, $32, $76, $70 ; "2wp#~2vp"
     DB      $23, $7E, $32, $79, $70, $23, $7E, $32 ; "#~2yp#~2"
-    DB      $78, $70, $23, $7E, $32, $75, $70, $11
-    DB      $00, $73, $21, $4B, $70, $01, $08, $00
-    DB      $ED, $B0, $CD, $56, $91, $E5, $21, $B1
-    DB      $70, $CB, $DE, $CB, $5E, $20, $FC, $E1
-    DB      $C9, $CD, $76, $1F, $21, $F0, $73, $7E
-    DB      $E6, $C0, $2B, $2B, $B6, $32, $EE, $73
-    DB      $C9, $3E, $00, $01, $00, $00, $18, $06
-    DB      $01, $00, $00, $3A, $79, $70, $C3, $92
-    DB      $89, $3A, $EE, $73, $E6, $05, $FE, $00
-    DB      $28, $0B, $C5, $CD, $BD, $91, $C1, $21
-    DB      $5F, $70, $CB, $B6, $C9, $21, $5F, $70
-    DB      $CB, $F6, $C9, $3A, $B2, $70, $47, $E6
-    DB      $0F, $FE, $00, $28, $16, $05, $78, $32
-    DB      $B2, $70, $CB, $48, $20, $CA, $01, $02
-    DB      $00, $CB, $7F, $28, $03, $01, $FE, $00
-    DB      $C3, $39, $8C, $CB, $78, $01, $00, $00
-    DB      $C2, $01, $8A, $CD, $3F, $8C, $3A, $59
-    DB      $70, $3A, $5B, $70, $CD, $22, $91, $D2
-    DB      $01, $8A, $3A, $EE, $73, $E6, $04, $28
-    DB      $3A, $01, $01, $00, $18, $DA, $3A, $5F
-    DB      $70, $CB, $6F, $28, $0A, $3A, $EE, $73
-    DB      $E6, $01, $20, $18, $C3, $55, $8D, $3A
-    DB      $EE, $73, $E6, $01, $28, $1D, $18, $0F
-    DB      $3A, $EE, $73, $E6, $01, $28, $14, $3E
-    DB      $84, $32, $B2, $70, $C3, $36, $8C, $01
-    DB      $00, $00, $3A, $00, $73, $32, $7C, $70
-    DB      $C3, $01, $8A, $3A, $EE, $73, $E6, $01
-    DB      $28, $18, $01, $FF, $00, $3A, $79, $70
-    DB      $FE, $04, $20, $0B, $3A, $AB, $70, $E6
-    DB      $01, $FE, $00, $20, $02, $0E, $00, $C3
-    DB      $39, $8C, $3A, $EE, $73, $E6, $04, $01
-    DB      $01, $00, $28, $C8, $CD, $1E, $91, $30
-    DB      $EE, $C3, $01, $8A, $CD, $3F, $8C, $CD
-    DB      $E3, $90, $30, $40, $3A, $EE, $73, $E6
-    DB      $08, $28, $21, $01, $00, $FE, $3A, $5F
-    DB      $70, $CB, $6F, $28, $14, $3A, $AC, $70
-    DB      $FE, $01, $20, $0D, $21, $5F, $70, $CB
-    DB      $DE, $CB, $78, $06, $04, $28, $02, $06
-    DB      $FC, $C3, $DC, $89, $3A, $EE, $73, $E6
-    DB      $02, $28, $11, $01, $00, $02, $18, $D6
-    DB      $3A, $EE, $73, $E6, $01, $28, $02, $0E
-    DB      $FE, $C3, $39, $8C, $01, $00, $00, $3A
-    DB      $58, $70, $FE, $00, $CA, $9C, $8C, $3A
-    DB      $5B, $70, $FE, $D8, $28, $09, $FE, $98
-    DB      $28, $05, $FE, $00, $C2, $87, $8C, $3A
-    DB      $5F, $70, $CB, $6F, $C2, $3E, $8D, $01
-    DB      $00, $00, $3E, $A0, $32, $7C, $70, $3A
-    DB      $A5, $71, $C2, $01, $8A, $3E, $06, $C3
-    DB      $88, $89, $3A, $57, $70, $CB, $78, $20
-    DB      $08, $21, $B0, $71, $34, $34, $3A, $59
-    DB      $70, $CD, $94, $A8, $28, $35, $3A, $58
-    DB      $70, $FE, $E0, $20, $38, $3A, $00, $70
-    DB      $CB, $6F, $20, $31
+    DB      $78, $70, $23, $7E, $32, $75, $70, $11 ; inline Z80: CALL $911E / PUSH HL / CB $DE ...
+    DB      $00, $73, $21, $4B, $70, $01, $08, $00 ; inline Z80: CB $5E / JR NZ / POP HL / RET ...
+    DB      $ED, $B0, $CD, $56, $91, $E5, $21, $B1 ; inline Z80: LD A,$00 / LD BC,$0000 / JR ...
+    DB      $70, $CB, $DE, $CB, $5E, $20, $FC, $E1 ; inline Z80: LD BC,$0000 / LD A,($7079) ...
+    DB      $C9, $CD, $76, $1F, $21, $F0, $73, $7E ; inline Z80: JP $8992 / LD A,($7373) / AND $05 ...
+    DB      $E6, $C0, $2B, $2B, $B6, $32, $EE, $73 ; inline Z80: JR Z / PUSH BC / CALL $91BD ...
+    DB      $C9, $3E, $00, $01, $00, $00, $18, $06 ; inline Z80: POP BC / LD HL,($705F) / RES 6 ...
+    DB      $01, $00, $00, $3A, $79, $70, $C3, $92 ; inline Z80: CB $F6 / RET ...
+    DB      $89, $3A, $EE, $73, $E6, $05, $FE, $00 ; inline Z80: LD A,($70B2) / LD B,A / AND $0F ...
+    DB      $28, $0B, $C5, $CD, $BD, $91, $C1, $21 ; inline Z80: JR Z (x2) / DEC B / LD ($70B2) / BIT 1 ...
+    DB      $5F, $70, $CB, $B6, $C9, $21, $5F, $70 ; inline Z80: LD BC,$0200 / CB $7F / JR Z ...
+    DB      $CB, $F6, $C9, $3A, $B2, $70, $47, $E6 ; inline Z80: JP $8C39 / CB $78 / LD BC,$0000 ...
+    DB      $0F, $FE, $00, $28, $16, $05, $78, $32 ; inline Z80: JP NZ $8A01 / CALL $8C3F ...
+    DB      $B2, $70, $CB, $48, $20, $CA, $01, $02 ; inline Z80: LD A,($705B) / LD A,($705B) / CALL $9122 ...
+    DB      $00, $CB, $7F, $28, $03, $01, $FE, $00 ; inline Z80: JP NC $8A01 / LD A,($7373) / AND $04 ...
+    DB      $C3, $39, $8C, $CB, $78, $01, $00, $00 ; inline Z80: JR Z / LD BC,$0001 / JR ...
+    DB      $C2, $01, $8A, $CD, $3F, $8C, $3A, $59 ; inline Z80: LD A,($705F) / BIT 5 / JR Z ...
+    DB      $70, $3A, $5B, $70, $CD, $22, $91, $D2 ; inline Z80: LD A,($7373) / AND $01 / JR NZ ...
+    DB      $01, $8A, $3A, $EE, $73, $E6, $04, $28 ; inline Z80: AND $01 / JR Z / JR ...
+    DB      $3A, $01, $01, $00, $18, $DA, $3A, $5F ; inline Z80: AND $01 / JR Z / LD A,$84 ...
+    DB      $70, $CB, $6F, $28, $0A, $3A, $EE, $73 ; inline Z80: LD ($70B2) / JP $8C36 ...
+    DB      $E6, $01, $20, $18, $C3, $55, $8D, $3A ; inline Z80: LD BC,$0000 / LD A,($7300) ...
+    DB      $EE, $73, $E6, $01, $28, $1D, $18, $0F ; inline Z80: JP $8A01 / LD A,($7373) / AND $01 ...
+    DB      $3A, $EE, $73, $E6, $01, $28, $14, $3E ; inline Z80: JR Z / LD BC,$FF00 / LD A,($7079) ...
+    DB      $84, $32, $B2, $70, $C3, $36, $8C, $01 ; inline Z80: CP $04 / JR NZ / LD A,($70AB) ...
+    DB      $00, $00, $3A, $00, $73, $32, $7C, $70 ; inline Z80: AND $01 / CP $00 / JR NZ / LD C,$00 ...
+    DB      $C3, $01, $8A, $3A, $EE, $73, $E6, $01 ; inline Z80: JP $8C39 / LD A,($7373) / AND $04 ...
+    DB      $28, $18, $01, $FF, $00, $3A, $79, $70 ; inline Z80: LD BC,$0100 / JR Z / CALL $911E ...
+    DB      $FE, $04, $20, $0B, $3A, $AB, $70, $E6 ; inline Z80: JP NC / JP $8A01 / CALL $8C3F ...
+    DB      $01, $FE, $00, $20, $02, $0E, $00, $C3 ; inline Z80: CALL $90E3 / JR NC / LD A,($7373) ...
+    DB      $39, $8C, $3A, $EE, $73, $E6, $04, $01 ; inline Z80: AND $08 / JR Z / LD BC,$00FE ...
+    DB      $01, $00, $28, $C8, $CD, $1E, $91, $30 ; inline Z80: BIT 5 / JR Z / LD A,($70AC) ...
+    DB      $EE, $C3, $01, $8A, $CD, $3F, $8C, $CD ; inline Z80: CP $01 / JR NZ / LD HL,($705F) ...
+    DB      $E3, $90, $30, $40, $3A, $EE, $73, $E6 ; inline Z80: CB $DE / CB $78 / LD B,$04 ...
+    DB      $08, $28, $21, $01, $00, $FE, $3A, $5F ; inline Z80: JP Z / JP $89DC ...
+    DB      $70, $CB, $6F, $28, $14, $3A, $AC, $70 ; inline Z80: AND $02 / JR Z / LD BC,$0002 ...
+    DB      $FE, $01, $20, $0D, $21, $5F, $70, $CB ; inline Z80: AND $01 / JR Z / LD C,$FE ...
+    DB      $DE, $CB, $78, $06, $04, $28, $02, $06 ; inline Z80: JP $8C39 / LD BC,$0000 / LD A,($7058) ...
+    DB      $FC, $C3, $DC, $89, $3A, $EE, $73, $E6 ; inline Z80: JP Z $8C9C / LD A,($705B) ...
+    DB      $02, $28, $11, $01, $00, $02, $18, $D6 ; inline Z80: CP $D8 / JR Z / CP $98 ...
+    DB      $3A, $EE, $73, $E6, $01, $28, $02, $0E ; inline Z80: CP $00 / JP NZ $8C87 ...
+    DB      $FE, $C3, $39, $8C, $01, $00, $00, $3A ; inline Z80: BIT 5 / JP NZ / LD BC,$0000 ...
+    DB      $58, $70, $FE, $00, $CA, $9C, $8C, $3A ; inline Z80: LD A,$A0 / LD ($707C) / LD A,($71A5) ...
+    DB      $5B, $70, $FE, $D8, $28, $09, $FE, $98 ; inline Z80: JP NZ $8A01 / LD A,$06 / JP $8988 ...
+    DB      $28, $05, $FE, $00, $C2, $87, $8C, $3A ; inline Z80: LD A,($7057) / BIT 3 / JR NZ ...
+    DB      $5F, $70, $CB, $6F, $C2, $3E, $8D, $01 ; inline Z80: INC (HL) / INC (HL) / LD A,($7059) ...
+    DB      $00, $00, $3E, $A0, $32, $7C, $70, $3A ; inline Z80: CALL $A894 / JR Z / LD A,($7058) ...
+    DB      $A5, $71, $C2, $01, $8A, $3E, $06, $C3 ; inline Z80: CP $E0 / JR NZ / LD A,($7000) ...
+    DB      $88, $89, $3A, $57, $70, $CB, $78, $20 ; inline Z80: BIT 5 / JR NZ (tail end)
+    DB      $08, $21, $B0, $71, $34, $34, $3A, $59 ; inline Z80: LD B,$34 / LD (IY+$34),A ...
+    DB      $70, $CD, $94, $A8, $28, $35, $3A, $58 ; inline Z80: LD A,($7059) / CALL $A894 ...
+    DB      $70, $FE, $E0, $20, $38, $3A, $00, $70 ; inline Z80: RET Z / LD A,($7058) ...
+    DB      $CB, $6F, $20, $31              ; inline Z80: BIT 5,($7000) / JR NZ (end of block)
 
 ; =============================================================================
 ; GAME STATE / ROOM TRANSITION -- LOC_8DA2 ($8DA2)
@@ -852,8 +852,8 @@ SUB_8DC2:
     DEC     (HL)                            ; DEC (HL): player loses one life
     POP     HL                              ; POP HL
     RET                                     ; RET
-    DB      $CB, $79, $20, $04, $AF, $32, $76, $70
-    DB      $1E, $00
+    DB      $CB, $79, $20, $04, $AF, $32, $76, $70 ; inline data (post-RET): BIT 3 A / JR NZ ...
+    DB      $1E, $00                        ; inline data (post-RET): LD E,$00 (tail)
 
 LOC_8DD3:
     LD      B, E                            ; B = E (secondary delta)
@@ -874,31 +874,31 @@ LOC_8DD3:
     ADD     A, B                            ; ADD A, B
     LD      (HL), A                         ; ($7305) = A: store new secondary X hi
     RET                                     ; RET
-    DB      $21, $76, $70, $5E, $23, $4E, $CD, $80
-    DB      $8D, $FE, $04, $38, $05, $FE, $F0, $DA
-    DB      $23, $8F, $21, $A8, $71, $34, $CB, $78
-    DB      $28, $07, $35, $35, $01, $00, $EC, $18
-    DB      $03, $01, $00, $16, $F5, $3A, $A7, $71
-    DB      $FE, $09, $38, $63, $3E, $01, $CD, $1A
-    DB      $AC, $3A, $79, $70, $FE, $05, $20, $3B
-    DB      $AF, $32, $A7, $71, $3E, $08, $32, $A8
-    DB      $71, $3A, $5F, $70, $CB, $9F, $CB, $AF
-    DB      $CB, $D7, $32, $5F, $70, $C5, $E5, $D5
-    DB      $21, $A6, $71, $7E, $FE, $09, $30, $01
-    DB      $34, $21, $C0, $70, $01, $C6, $00, $CD
-    DB      $0B, $84, $CD, $B7, $A8, $01, $00, $07
-    DB      $CD, $D9, $1F, $CD, $C3, $A8, $D1, $E1
-    DB      $C1, $18, $1C, $3A, $5F, $70, $CB, $6F
-    DB      $CB, $DF, $CB, $EF, $32, $5F, $70, $20
-    DB      $08, $3E, $F0, $32, $AC, $70, $CD, $06
-    DB      $AC, $F1, $CD, $D4, $8D, $18, $07, $F1
-    DB      $CD, $D4, $8D, $CD, $13, $8C, $21, $7D
+    DB      $21, $76, $70, $5E, $23, $4E, $CD, $80 ; inline Z80: LD HL,$7076 / LD E,(HL) / INC HL / LD C,(HL)
+    DB      $8D, $FE, $04, $38, $05, $FE, $F0, $DA ; inline Z80: CALL $8D80 / CP $04 / JR C / CP $F0 ...
+    DB      $23, $8F, $21, $A8, $71, $34, $CB, $78 ; inline Z80: JP $8F23 / LD HL,($71A8) / INC (HL) ...
+    DB      $28, $07, $35, $35, $01, $00, $EC, $18 ; inline Z80: BIT 3 / JR Z (x2) / LD BC,$00EC ...
+    DB      $03, $01, $00, $16, $F5, $3A, $A7, $71 ; inline Z80: LD BC,$0016 / PUSH AF / LD A,($71A7) ...
+    DB      $FE, $09, $38, $63, $3E, $01, $CD, $1A ; inline Z80: CP $09 / JR NC / LD A,$01 / CALL $AC1A ...
+    DB      $AC, $3A, $79, $70, $FE, $05, $20, $3B ; inline Z80: LD A,($7079) / CP $05 / JR NZ ...
+    DB      $AF, $32, $A7, $71, $3E, $08, $32, $A8 ; inline Z80: XOR A / LD ($71A7) / LD A,$08 / LD ($71A8)
+    DB      $71, $3A, $5F, $70, $CB, $9F, $CB, $AF ; inline Z80: LD A,($705F) / BIT 1 / JR Z ...
+    DB      $CB, $D7, $32, $5F, $70, $C5, $E5, $D5 ; inline Z80: PUSH HL,BC / LD HL,$70C6 ...
+    DB      $21, $A6, $71, $7E, $FE, $09, $30, $01 ; inline Z80: CALL $840B / CALL $A8B7 / LD BC,$0700 ...
+    DB      $34, $21, $C0, $70, $01, $C6, $00, $CD ; inline Z80: CALL $1FD9 / CALL $A8C3 / POP DE+HL+BC ...
+    DB      $0B, $84, $CD, $B7, $A8, $01, $00, $07 ; inline Z80: JR / LD A,($705F) / BIT 5 ...
+    DB      $CD, $D9, $1F, $CD, $C3, $A8, $D1, $E1 ; inline Z80: JR NZ / LD A,$F0 / LD ($70AC) ...
+    DB      $C1, $18, $1C, $3A, $5F, $70, $CB, $6F ; inline Z80: CALL $AC06 / POP AF / CALL $8DD4 ...
+    DB      $CB, $DF, $CB, $EF, $32, $5F, $70, $20 ; inline Z80: LD HL,$7077 / LD (HL),A ...
+    DB      $08, $3E, $F0, $32, $AC, $70, $CD, $06 ; inline Z80: LD ($7076) ...
+    DB      $AC, $F1, $CD, $D4, $8D, $18, $07, $F1 ; inline Z80: LD ($7078) / LD ($7075) ...
+    DB      $CD, $D4, $8D, $CD, $13, $8C, $21, $7D ; inline Z80: LD HL,$7300 / LD A,(HL) / LD ($707C) ...
     DB      $70, $3A, $77, $70, $77, $23, $3A, $76 ; "p:wpw#:v"
     DB      $70, $77, $23, $3A, $79, $70, $77, $23 ; "pw#:ypw#"
     DB      $3A, $78, $70, $77, $3A, $75, $70, $23 ; ":xpw:up#"
-    DB      $77, $21, $00, $73, $7E, $32, $7C, $70
-    DB      $11, $4B, $70, $01, $08, $00, $ED, $B0
-    DB      $E5, $21, $B1, $70, $CB, $E6, $E1, $C9
+    DB      $77, $21, $00, $73, $7E, $32, $7C, $70 ; inline Z80: LD ($7077) / LD HL,$7300 / LD A,(HL) ...
+    DB      $11, $4B, $70, $01, $08, $00, $ED, $B0 ; inline Z80: LD DE,($704B) / LD BC,$0008 / LDIR ...
+    DB      $E5, $21, $B1, $70, $CB, $E6, $E1, $C9 ; inline Z80: PUSH HL / SET 6,(HL) / POP HL / RET
 
 ; =============================================================================
 ; FRAME GAME BODY -- DELAY_LOOP_8EB0 ($8EB0)
@@ -947,67 +947,67 @@ LOC_8EBF:
     JR      NZ, LOC_8F03                    ; JR NZ, LOC_8F03: tile-skip set -- skip re-render
     LD      A, $04                          ; A = $04
     CALL    SUB_AE00                        ; CALL SUB_AE00 ($04): re-render room tiles after pickup
-    CALL    $00AB
-    INC     BC
-    CALL    $10AB
-    INC     B
-    CALL    $15AB
-    INC     B
-    NOP     
-    NOP     
+    CALL    $00AB                           ; inline data: SUB_AE00 $04 VRAM block byte 0
+    INC     BC                              ; inline data: SUB_AE00 $04 VRAM block byte 1
+    CALL    $10AB                           ; inline data: SUB_AE00 $04 VRAM block byte 2
+    INC     B                               ; inline data: SUB_AE00 $04 VRAM block byte 3
+    CALL    $15AB                           ; inline data: SUB_AE00 $04 VRAM block byte 4
+    INC     B                               ; inline data: SUB_AE00 $04 VRAM block byte 5
+    NOP                                     ; inline data: SUB_AE00 $04 VRAM block byte 6
+    NOP                                     ; inline data: SUB_AE00 $04 VRAM block byte 7
 
 LOC_8F03:
-    RET     
-    DB      $21, $A7, $71, $3A, $5F, $70, $CB, $6F
-    DB      $C2, $0C, $8E, $35, $C3, $0C, $8E, $21
-    DB      $A7, $71, $3A, $5F, $70, $CB, $57, $28
-    DB      $02, $23, $34, $34, $C3, $0C, $8E, $01
-    DB      $00, $00, $2B, $7E, $FE, $08, $30, $04
-    DB      $0E, $A4, $18, $D4, $FE, $AC, $D8, $0E
-    DB      $5C, $18, $DC, $3A, $79, $70, $FE, $08
-    DB      $D0, $3A, $5B, $70, $E5, $D5, $C5, $21
-    DB      $12, $94, $01, $07, $00, $ED, $B1, $20
-    DB      $0E, $79, $1E, $01, $FE, $04, $38, $02
-    DB      $1E, $FF, $C1, $78, $83, $47, $C5, $C1
-    DB      $D1, $E1, $C9, $3A, $79, $70, $FE, $09
-    DB      $C8, $21, $11, $70, $7E, $EE, $80, $77
-    DB      $CD, $56, $91, $3A, $57, $70, $21, $78
-    DB      $70, $CB, $7E, $20, $08, $21, $B0, $71
-    DB      $34, $34, $3A, $59, $70, $FE, $9C, $20
-    DB      $06, $16, $70, $3E, $5D, $18, $12, $FE
-    DB      $B7, $20, $06, $16, $69, $3E, $58, $18
-    DB      $08, $FE, $C7, $20, $34, $3E, $62, $16
-    DB      $77, $21, $84, $70, $72, $CD, $8F, $90
-    DB      $20, $27, $CD, $9C, $90, $2A, $B0, $71
-    DB      $01, $60, $00, $37, $3F, $ED, $42, $22
-    DB      $B0, $71, $CD, $C8, $90, $3A, $84, $70
-    DB      $CD, $F1, $A3, $F5, $3E, $08, $CD, $1A
-    DB      $AC, $F1, $21, $00, $03, $CD, $87, $A5
-    DB      $C9, $CD, $56, $91, $21, $B0, $71, $34
-    DB      $3A, $58, $70, $01, $08, $00, $21, $28
-    DB      $94, $ED, $B1, $20, $19, $3A, $4A, $70
-    DB      $FE, $00, $C0, $21, $00, $70, $CB, $DE
-    DB      $E5, $CD, $A5, $90, $E1, $CB, $9E, $0E
-    DB      $00, $1E, $00, $C3, $A2, $8D, $01, $0C
-    DB      $00, $21, $30, $94, $ED, $B1, $20, $3E
-    DB      $CD, $67, $90, $2B, $7E, $E6, $F8, $FE
-    DB      $78, $20, $04, $3E, $58, $18, $08, $FE
-    DB      $68, $3E, $62, $20, $02, $3E, $5D, $C5
-    DB      $4F, $CD, $6C, $A5, $38, $1E, $F5, $3E
-    DB      $02, $CD, $1A, $AC, $F1, $CD, $B7, $A8
-    DB      $C1, $C5, $CD, $A5, $90, $3E, $0B, $ED
-    DB      $5B, $B0, $71, $CD, $78, $A3, $CD, $A8
-    DB      $8E, $CD, $C3, $A8, $C1, $C9, $01, $10
-    DB      $00, $21, $18, $94, $ED, $B1, $C0, $79
-    DB      $FE, $04, $30, $0C, $CD, $6D, $90, $3E
-    DB      $A0, $32, $4A, $70, $3E, $8C, $18, $30
-    DB      $FE, $08, $30, $1C, $3E, $44, $CD, $67
-    DB      $90, $18, $25, $E5, $21, $50, $00, $18
-    DB      $0A, $E5, $21, $00, $01, $18, $04, $E5
-    DB      $21, $00, $30, $22, $BD, $70, $E1, $C9
-    DB      $FE, $0C, $30, $07, $CD, $73, $90, $3E
-    DB      $53, $18, $05, $3E, $91, $CD, $67, $90
-    DB      $C3, $1B, $90
+    RET                                     ; RET: return from subroutine (LOC_8F03)
+    DB      $21, $A7, $71, $3A, $5F, $70, $CB, $6F ; inline Z80: LD HL,($71A7) / LD A,($705F) / BIT 5 ...
+    DB      $C2, $0C, $8E, $35, $C3, $0C, $8E, $21 ; inline Z80: JP NZ $8E0C / DEC (HL) / JP $8E0C ...
+    DB      $A7, $71, $3A, $5F, $70, $CB, $57, $28 ; inline Z80: LD HL,($71A7) / LD A,($705F) / BIT 2 ...
+    DB      $02, $23, $34, $34, $C3, $0C, $8E, $01 ; inline Z80: JR Z / INC HL / INC (HL) / INC (HL) ...
+    DB      $00, $00, $2B, $7E, $FE, $08, $30, $04 ; inline Z80: JP $8E0C / LD BC,$0000 / DEC HL ...
+    DB      $0E, $A4, $18, $D4, $FE, $AC, $D8, $0E ; inline Z80: CP $08 / JR NC / LD C,$A4 / JR ...
+    DB      $5C, $18, $DC, $3A, $79, $70, $FE, $08 ; inline Z80: LD C,$5C / JR / LD A,($7079) ...
+    DB      $D0, $3A, $5B, $70, $E5, $D5, $C5, $21 ; inline Z80: JP NC / LD A,($705B) / PUSH HL+DE+BC ...
+    DB      $12, $94, $01, $07, $00, $ED, $B1, $20 ; inline Z80: LD HL,$9412 / LD BC,$0007 / CPIR ...
+    DB      $0E, $79, $1E, $01, $FE, $04, $38, $02 ; inline Z80: JR NZ / LD C,A / LD A,$04 / JR C ...
+    DB      $1E, $FF, $C1, $78, $83, $47, $C5, $C1 ; inline Z80: LD C,$FF / POP BC / ADD A,B / LD B,A ...
+    DB      $D1, $E1, $C9, $3A, $79, $70, $FE, $09 ; inline Z80: CALL $9208 / JR NC / LD HL,($71B0) ...
+    DB      $C8, $21, $11, $70, $7E, $EE, $80, $77 ; inline Z80: INC (HL) / INC (HL) / LD A,($7059) ...
+    DB      $CD, $56, $91, $3A, $57, $70, $21, $78 ; inline Z80: CP $9C / JR NZ / LD D,$70 / LD A,$5D ...
+    DB      $70, $CB, $7E, $20, $08, $21, $B0, $71 ; inline Z80: CP $B7 / JR NZ / LD D,$69 / LD A,$58 ...
+    DB      $34, $34, $3A, $59, $70, $FE, $9C, $20 ; inline Z80: CP $C7 / JR NZ / LD A,$62 / LD D,$77 ...
+    DB      $06, $16, $70, $3E, $5D, $18, $12, $FE ; inline Z80: LD HL,$7084 / LD (HL),D / CALL $908F ...
+    DB      $B7, $20, $06, $16, $69, $3E, $58, $18 ; inline Z80: JR NZ / CALL $909C / LD HL,($70B0) ...
+    DB      $08, $FE, $C7, $20, $34, $3E, $62, $16 ; inline Z80: LD BC,$0060 / SCF+CCF / SBC HL,BC ...
+    DB      $77, $21, $84, $70, $72, $CD, $8F, $90 ; inline Z80: LD ($70B0) / CALL $90C8 / LD A,($7084) ...
+    DB      $20, $27, $CD, $9C, $90, $2A, $B0, $71 ; inline Z80: CALL $A3F1 / PUSH AF / LD A,$08 ...
+    DB      $01, $60, $00, $37, $3F, $ED, $42, $22 ; inline Z80: CALL $AC1A / POP AF / LD HL,$0300 ...
+    DB      $B0, $71, $CD, $C8, $90, $3A, $84, $70 ; inline Z80: CALL $A587 / RET ...
+    DB      $CD, $F1, $A3, $F5, $3E, $08, $CD, $1A ; inline Z80: CALL $56A1 / LD HL,($71B0) / INC (HL) ...
+    DB      $AC, $F1, $21, $00, $03, $CD, $87, $A5 ; inline Z80: CP $00 / CALL NZ / LD HL,$0070 / CB $DE ...
+    DB      $C9, $CD, $56, $91, $21, $B0, $71, $34 ; inline Z80: PUSH HL / CALL $90A5 / POP HL / CB $9E ...
+    DB      $3A, $58, $70, $01, $08, $00, $21, $28 ; inline Z80: LD C,$00 / LD E,$00 / JP $92A2 ...
+    DB      $94, $ED, $B1, $20, $19, $3A, $4A, $70 ; inline Z80: LD BC,$000C / LD HL,$9430 / CPIR ...
+    DB      $FE, $00, $C0, $21, $00, $70, $CB, $DE ; inline Z80: CALL $9067 / DEC HL / AND $F8 ...
+    DB      $E5, $CD, $A5, $90, $E1, $CB, $9E, $0E ; inline Z80: CP $78 / JR NZ / LD A,$58 / JR ...
+    DB      $00, $1E, $00, $C3, $A2, $8D, $01, $0C ; inline Z80: CP $68 / LD A,$62 / JR NZ / LD A,$5D ...
+    DB      $00, $21, $30, $94, $ED, $B1, $20, $3E ; inline Z80: PUSH BC / LD C,A / CALL $A56C ...
+    DB      $CD, $67, $90, $2B, $7E, $E6, $F8, $FE ; inline Z80: JR NC / PUSH AF / LD A,$02 / CALL $AC1A
+    DB      $78, $20, $04, $3E, $58, $18, $08, $FE ; inline Z80: POP AF / CALL $A8B7 / POP BC ...
+    DB      $68, $3E, $62, $20, $02, $3E, $5D, $C5 ; inline Z80: CALL $8EA8 / CALL $A8C3 / POP BC ...
+    DB      $4F, $CD, $6C, $A5, $38, $1E, $F5, $3E ; inline Z80: LD BC,$0010 / LD HL,$9418 / CPIR ...
+    DB      $02, $CD, $1A, $AC, $F1, $CD, $B7, $A8 ; inline Z80: CALL NZ / LD A,C / CP $04 / JR NC ...
+    DB      $C1, $C5, $CD, $A5, $90, $3E, $0B, $ED ; inline Z80: CALL $906D / LD A,$A0 / LD ($704A) ...
+    DB      $5B, $B0, $71, $CD, $78, $A3, $CD, $A8 ; inline Z80: CP $08 / JR NC / LD A,$44 / JR ...
+    DB      $8E, $CD, $C3, $A8, $C1, $C9, $01, $10 ; inline Z80: CP $08 / JR NC / LD A,$44 / CALL $9067 ...
+    DB      $00, $21, $18, $94, $ED, $B1, $C0, $79 ; inline Z80: JR / PUSH HL / LD HL,$5000 / JR ...
+    DB      $FE, $04, $30, $0C, $CD, $6D, $90, $3E ; inline Z80: PUSH HL / LD HL,$0100 / JR ...
+    DB      $A0, $32, $4A, $70, $3E, $8C, $18, $30 ; inline Z80: PUSH HL / LD HL,$3000 / LD ($70BD) ...
+    DB      $FE, $08, $30, $1C, $3E, $44, $CD, $67 ; inline Z80: POP HL / RET / CP $0C / JR NC ...
+    DB      $90, $18, $25, $E5, $21, $50, $00, $18 ; inline Z80: CALL $9073 / LD A,$53 / JR ...
+    DB      $0A, $E5, $21, $00, $01, $18, $04, $E5 ; inline Z80: LD A,$91 / CALL $9067 / JP $901B ...
+    DB      $21, $00, $30, $22, $BD, $70, $E1, $C9 ; inline Z80: continued (tail bytes of block)
+    DB      $FE, $0C, $30, $07, $CD, $73, $90, $3E ; inline Z80: continued
+    DB      $53, $18, $05, $3E, $91, $CD, $67, $90 ; inline Z80: continued
+    DB      $C3, $1B, $90                   ; inline Z80: end of LOC_8F03 inline data
 
 SUB_908F:
     LD      HL, $71B2                       ; HL = $71B2 (item pickup table, 6 entries)
@@ -1025,38 +1025,38 @@ SUB_909C:
     DEC     DE                              ; DEC DE (DE = HL-1 -- dest one slot before source)
     LDIR                                    ; LDIR: shift item table left by one slot (remove collected item)
     CALL    SOUND_WRITE_A548                ; CALL SOUND_WRITE_A548: update item sprite after pickup
-    RET     
-    DB      $79, $C6, $04, $D6, $04, $FE, $04, $30
-    DB      $FA, $5F, $AF, $47, $CB, $43, $28, $02
-    DB      $C6, $01, $CB, $4B, $28, $02, $C6, $20
-    DB      $2A, $B0, $71, $4F, $37, $3F, $ED, $42
-    DB      $22, $B0, $71, $11, $F2, $72, $21, $B0
-    DB      $71, $06, $18, $1B, $1B, $1A, $BE, $20
-    DB      $0B, $23, $13, $1A, $BE, $20, $F5, $D5
-    DB      $E1, $C3, $A2, $92, $10, $ED, $3A, $57
-    DB      $70, $FE, $08, $28, $07, $3A, $59, $70
-    DB      $FE, $08, $20, $0E, $3A, $79, $70, $FE
-    DB      $04, $28, $07, $3A, $5F, $70, $CB, $57
-    DB      $20, $16, $3A, $EE, $73, $E6, $C0, $F5
-    DB      $FE, $C0, $20, $0E, $3A, $75, $70, $FE
-    DB      $80, $20, $07, $F1, $AF, $32, $75, $70
-    DB      $37, $C9, $F1, $32, $75, $70, $37, $3F
-    DB      $C9, $21, $5B, $70, $7E, $E5, $C5, $21
-    DB      $FF, $93, $01, $0A, $00, $ED, $B1, $C1
-    DB      $E1, $28, $1F, $FE, $E8, $28, $14, $CD
-    DB      $3B, $91, $28, $19, $37, $C9, $E5, $C5
-    DB      $21, $0E, $A0, $01, $05, $00, $ED, $B1
-    DB      $C1, $E1, $C9, $3A, $00, $70, $CB, $77
-    DB      $37, $C0, $37, $3F, $C9, $3E, $D2, $18
-    DB      $F9, $21, $04, $73, $7E, $32, $84, $70
-    DB      $23, $7E, $32, $85, $70, $01, $02, $12
-    DB      $21, $57, $70, $CD, $6C, $91, $C9, $E5
-    DB      $3A, $84, $70, $80, $47, $3A, $85, $70
-    DB      $C6, $FF, $81, $CD, $E3, $AF, $01, $DF
-    DB      $FF, $09, $EB, $ED, $53, $B0, $71, $21
-    DB      $00, $70, $CB, $E6, $CB, $D6, $E1, $01
-    DB      $03, $02, $CD, $A7, $AE, $21, $00, $70
-    DB      $CB, $A6, $CB, $96, $C9
+    RET                                     ; RET: return from SUB_909C
+    DB      $79, $C6, $04, $D6, $04, $FE, $04, $30 ; inline Z80: LD A,C / ADD A,$04 / SUB $04 ...
+    DB      $FA, $5F, $AF, $47, $CB, $43, $28, $02 ; inline Z80: CP $04 / JR NC / LD E,A ...
+    DB      $C6, $01, $CB, $4B, $28, $02, $C6, $20 ; inline Z80: XOR A / LD B,A / BIT 0 / JR Z ...
+    DB      $2A, $B0, $71, $4F, $37, $3F, $ED, $42 ; inline Z80: ADD A,$01 / BIT 1 / JR Z / ADD A,$20 ...
+    DB      $22, $B0, $71, $11, $F2, $72, $21, $B0 ; inline Z80: LD HL,($70B0) / LD C,A / SCF+CCF / SBC HL,BC
+    DB      $71, $06, $18, $1B, $1B, $1A, $BE, $20 ; inline Z80: LD ($70B0) / LD DE,$72F2 / LD HL,($70B0) ...
+    DB      $0B, $23, $13, $1A, $BE, $20, $F5, $D5 ; inline Z80: LD B,$06 / DEC DE (x2) / DEC DE / CP (HL) ...
+    DB      $E1, $C3, $A2, $92, $10, $ED, $3A, $57 ; inline Z80: JR NZ / INC HL / INC DE / CP (HL) / JR NZ ...
+    DB      $70, $FE, $08, $28, $07, $3A, $59, $70 ; inline Z80: PUSH DE / POP HL / JP $92A2 ...
+    DB      $FE, $08, $20, $0E, $3A, $79, $70, $FE ; inline Z80: DJNZ / LD D,A / LD A,($7057) ...
+    DB      $04, $28, $07, $3A, $5F, $70, $CB, $57 ; inline Z80: CP $08 / JR Z / LD A,($7059) ...
+    DB      $20, $16, $3A, $EE, $73, $E6, $C0, $F5 ; inline Z80: CP $08 / JR NZ / LD A,($7079) ...
+    DB      $FE, $C0, $20, $0E, $3A, $75, $70, $FE ; inline Z80: CP $04 / JR Z / LD A,($705F) / BIT 2 ...
+    DB      $80, $20, $07, $F1, $AF, $32, $75, $70 ; inline Z80: JR NZ / LD A,($7373) / AND $C0 ...
+    DB      $37, $C9, $F1, $32, $75, $70, $37, $3F ; inline Z80: CALL $913B / JR Z / CP $E8 / JR Z ...
+    DB      $C9, $21, $5B, $70, $7E, $E5, $C5, $21 ; inline Z80: CALL $913B / JR Z / LD HL,$A00E ...
+    DB      $FF, $93, $01, $0A, $00, $ED, $B1, $C1 ; inline Z80: LD BC,$0005 / CPIR / POP BC / POP HL ...
+    DB      $E1, $28, $1F, $FE, $E8, $28, $14, $CD ; inline Z80: LD A,($7000) / BIT 7 / SCF+NC / RET ...
+    DB      $3B, $91, $28, $19, $37, $C9, $E5, $C5 ; inline Z80: LD A,$D2 / JR ...
+    DB      $21, $0E, $A0, $01, $05, $00, $ED, $B1 ; inline Z80: LD HL,$7304 / LD A,(HL) / LD ($7084) ...
+    DB      $C1, $E1, $C9, $3A, $00, $70, $CB, $77 ; inline Z80: INC HL / LD A,(HL) / LD ($7085) / LD BC,$1202
+    DB      $37, $C0, $37, $3F, $C9, $3E, $D2, $18 ; inline Z80: LD HL,$7057 / CALL $916C / RET ...
+    DB      $F9, $21, $04, $73, $7E, $32, $84, $70 ; inline Z80: PUSH HL / LD A,($7084) / ADD A,B ...
+    DB      $23, $7E, $32, $85, $70, $01, $02, $12 ; inline Z80: ADD A,C / LD HL,$E3AF / LD BC,$01DF ...
+    DB      $21, $57, $70, $CD, $6C, $91, $C9, $E5 ; inline Z80: ADD HL,BC / LD ($53,$ED) / LD HL,$0070 ...
+    DB      $3A, $84, $70, $80, $47, $3A, $85, $70 ; inline Z80: CB $E6 / CB $D6 / POP HL / LD BC,$0203 ...
+    DB      $C6, $FF, $81, $CD, $E3, $AF, $01, $DF ; inline Z80: CALL $AEA7 / LD HL,$0070 / CB $A6 ...
+    DB      $FF, $09, $EB, $ED, $53, $B0, $71, $21 ; inline Z80: CB $96 / RET
+    DB      $00, $70, $CB, $E6, $CB, $D6, $E1, $01 ; inline Z80: CB $96 / RET (tail)
+    DB      $03, $02, $CD, $A7, $AE, $21, $00, $70 ; inline Z80: tail end bytes
+    DB      $CB, $A6, $CB, $96, $C9         ; inline Z80: end of SUB_909C inline data
 
 SUB_919A:
     LD      HL, WORK_BUFFER                 ; HL = WORK_BUFFER ($7000)
@@ -1067,7 +1067,7 @@ SUB_919A:
     LD      BC, $0020                       ; BC = $0020 (32 bytes)
     CALL    SUB_840B                        ; CALL SUB_840B: zero-fill $7308 enemy data ($20 bytes)
     CALL    SOUND_WRITE_A067                ; CALL SOUND_WRITE_A067: load new sound channel data
-    RET     
+    RET                                     ; RET: return after sound/entity init
 
 SUB_91B0:
     LD      A, ($7096)                      ; A = ($7096) direction/state counter
@@ -1077,10 +1077,10 @@ SUB_91B0:
 
 LOC_91B9:                                   ; LOC_91B9:
     LD      ($7096), A                      ; ($7096) = A: store wrapped counter
-    RET     
-    DB      $21, $AD, $70, $35, $C0, $36, $02, $3A
-    DB      $AA, $70, $3D, $F2, $CD, $91, $3E, $07
-    DB      $32, $AA, $70, $C9
+    RET                                     ; RET: return with wrapped direction counter
+    DB      $21, $AD, $70, $35, $C0, $36, $02, $3A ; inline Z80: LD HL,$70AD / DEC (HL) / RET NZ ...
+    DB      $AA, $70, $3D, $F2, $CD, $91, $3E, $07 ; inline Z80: LD ($70AA) / DEC A / JP P / LD A,$07 ...
+    DB      $32, $AA, $70, $C9              ; inline Z80: LD ($70AA) / RET
 
 SUB_91D1:
     SUB     (HL)                            ; SUB (HL): A -= (HL) (compute signed delta)
@@ -1090,20 +1090,20 @@ SUB_91D1:
 LOC_91D7:                                   ; LOC_91D7:
     CP      B                               ; CP B: |delta| vs threshold B
     RET                                     ; RET (flags: C if within threshold)
-    DB      $F5, $F1, $21, $14, $20, $11, $01, $00
-    DB      $CD, $25, $AE, $C9, $3A, $AC, $70, $3D
-    DB      $FE, $00, $20, $02, $3E, $01, $32, $AC
-    DB      $70, $3A, $79, $70, $FE, $08, $D0, $21
-    DB      $4A, $70, $7E, $FE, $00, $28, $15, $35
-    DB      $FE, $01, $28, $07, $3E, $E0, $CD
+    DB      $F5, $F1, $21, $14, $20, $11, $01, $00 ; inline Z80: PUSH AF / POP AF / LD HL,$2014 ...
+    DB      $CD, $25, $AE, $C9, $3A, $AC, $70, $3D ; inline Z80: LD DE,$0001 / CALL $AE25 / RET ...
+    DB      $FE, $00, $20, $02, $3E, $01, $32, $AC ; inline Z80: LD A,($70AC) / DEC A / CP $00 / JR NZ ...
+    DB      $70, $3A, $79, $70, $FE, $08, $D0, $21 ; inline Z80: LD A,$01 / LD ($70AC) / LD A,($7079) ...
+    DB      $4A, $70, $7E, $FE, $00, $28, $15, $35 ; inline Z80: JP NC / LD HL,($704A) ...
+    DB      $FE, $01, $28, $07, $3E, $E0, $CD ; inline Z80: CP $00 / JR Z / DEC (HL) / CP $01 ...
 
 SUB_9208:
-    EXX                                     ; EXX: swap to alternate BC'/DE'/HL' register set
-    SUB     C                               ; SUB C: A -= C (apply delta from alternate C')
+    EXX                                     ; EXX: swap to alternate BC/DE/HL register set
+    SUB     C                               ; SUB C: A -= C (apply delta from alternate C)
     JR      LOC_921F                        ; JR LOC_921F: jump to main collision loop
-    DB      $3E, $C0, $CD, $D9, $91, $AF, $32, $4A
-    DB      $70, $3E, $8C, $CD, $8F, $90, $20, $03
-    DB      $CD, $9C, $90
+    DB      $3E, $C0, $CD, $D9, $91, $AF, $32, $4A ; inline Z80: LD A,$C0 / CALL $91D9 / XOR A / LD ($704A)
+    DB      $70, $3E, $8C, $CD, $8F, $90, $20, $03 ; inline Z80: LD A,$8C / CALL $908F / JR NZ ...
+    DB      $CD, $9C, $90                   ; inline Z80: CALL $909C (tail)
 
 LOC_921F:
     CALL    SUB_92D1                        ; CALL SUB_92D1: toggle $7098 flip-flag (XOR $80), CALL SUB_91B0 if zero
@@ -1134,7 +1134,7 @@ LOC_9239:                                   ; LOC_9239: -- tile scan loop body
     PUSH    HL                              ; PUSH HL: save pointer for this entry
     LD      HL, $7304                       ; HL = $7304 (player secondary X)
     LD      B, $00                          ; B = $00
-    ADD     HL, BC                          ; ADD HL, BC: index to player's tile column slot
+    ADD     HL, BC                          ; ADD HL, BC: index to players tile column slot
     LD      A, ($7084)                      ; A = ($7084) player X lo
     LD      B, $0D                          ; B = $0D (half-tile threshold = 13 pixels)
     CALL    SUB_91D1                        ; CALL SUB_91D1: |player X - tile X| vs 13
@@ -1200,9 +1200,9 @@ LOC_92AF:
     NEG                                     ; NEG: make positive
     SRA     A                               ; SRA A: halve the distance
     CALL    SUB_92BE                        ; CALL SUB_92BE: compute reaction velocity and apply
-    LD      C, $00
-    LD      E, C
-    RET     
+    LD      C, $00                          ; LD C,$00: C = 0 (clear speed component)
+    LD      E, C                            ; LD E,C: E = 0 (clear second speed component)
+    RET                                     ; RET: return with C=E=0 (no reaction)
 
 SUB_92BE:
     DEC     A                               ; DEC A
@@ -1214,7 +1214,7 @@ SUB_92BE:
     LD      A, (HL)                         ; A = (HL)
     XOR     D                               ; XOR D: toggle direction bit
     LD      (HL), A                         ; (HL) = A: write updated direction
-    RET     
+    RET                                     ; RET: return after direction toggle
 
 SUB_92D1:
     LD      HL, $7098                       ; HL = $7098 (movement flip-flag)
@@ -1222,441 +1222,441 @@ SUB_92D1:
     XOR     (HL)                            ; XOR (HL): toggle bit 7
     LD      (HL), A                         ; (HL) = A: store new flag
     CALL    Z, SUB_91B0                     ; CALL Z, SUB_91B0: if result=0, DEC+wrap $7096 direction counter
-    RET     
-    DB      $3A, $79, $70, $FE, $01, $20, $32, $3A
-    DB      $AA, $70, $CB, $2F, $21, $80, $93, $F5
-    DB      $FE, $00, $28, $05, $3E, $09, $CD, $1A
-    DB      $AC, $F1, $CD, $69, $93, $30, $0A, $21
-    DB      $78, $93, $18, $05, $3A, $AA, $70, $CB
-    DB      $2F, $CB, $27, $CD, $40, $A5, $11, $02
-    DB      $73, $12, $11, $06, $73, $23, $7E, $12
-    DB      $C9, $FE, $02, $20, $0E, $21, $88, $93
-    DB      $CD, $69, $93, $38, $03, $21, $8A, $93
-    DB      $AF, $18, $DE, $FE, $03, $20, $0F, $21
-    DB      $5F, $70, $CB, $76, $28, $03, $CB, $B6
-    DB      $C9, $21, $8E, $93, $18, $C6, $FE, $04
-    DB      $20, $05, $21, $96, $93, $18, $BD, $FE
-    DB      $05, $20, $06, $21, $8C, $93, $AF, $18
-    DB      $B8, $FE, $09, $20, $08, $21, $9E, $93
-    DB      $3A, $96, $70, $18, $AC, $FE, $08, $C8
-    DB      $FE, $0A, $C8, $AF, $C3, $E8, $92, $F5
-    DB      $3A, $76, $70, $18, $04, $F5, $3A, $78
-    DB      $70, $CB, $7F, $20, $03, $F1, $37, $C9
-    DB      $F1, $37, $3F, $C9, $34, $98, $6C, $A0
-    DB      $34, $98, $34, $9C, $40, $A4, $7C, $AC
-    DB      $40, $A4, $40, $A8, $4C, $B0, $50, $B4
-    DB      $64, $C8, $54, $B8, $58, $BC, $54, $B8
-    DB      $58, $BC, $5C, $C0, $60, $C4, $5C, $C0
-    DB      $60, $C4, $68, $CC, $68, $D0, $68, $CC
-    DB      $68, $D0, $D8, $D4, $D8, $D4, $E0, $DC
-    DB      $E0, $DC, $04, $03, $03, $01, $01, $01
-    DB      $01, $00, $00, $00, $00, $00, $FF, $FF
-    DB      $FF, $FF, $FB, $FB, $F8, $4F, $F0, $F0
-    DB      $80, $80, $F9, $AF, $4A, $A0, $A0, $F0
-    DB      $F0, $A9, $B5, $4B, $B0, $B0, $50, $50
-    DB      $B9, $BC, $4B, $B0, $B0, $C0, $C0, $B9
-    DB      $BD, $4B, $B0, $B0, $E0, $E0, $B9, $EC
-    DB      $4E, $E0, $E0, $C0, $C0, $E9, $ED, $4E
-    DB      $E0, $E0, $D0, $D0, $E9, $A7, $4A, $A0
-    DB      $A0, $70, $70, $A9, $E7, $4E, $E0, $E0
-    DB      $70, $70, $E9, $08, $10, $11, $05, $04
-    DB      $06, $B9, $B8, $BA, $C4, $47, $41, $4D
-    DB      $45, $00, $4F, $56, $45, $52, $04, $05
-    DB      $06, $B9, $B8, $BA, $9B, $9A, $97, $96
-    DB      $63, $62, $D1, $D0, $D9, $99, $D8, $98
-    DB      $AF, $A9, $AE, $A8, $A3, $A2, $A1, $A0
-    DB      $A6, $A7, $A4, $A5, $6B, $6A, $69, $68
+    RET                                     ; RET: return after direction flip
+    DB      $3A, $79, $70, $FE, $01, $20, $32, $3A ; inline Z80 (post-RET): LD A,($7079) / CP $01 ...
+    DB      $AA, $70, $CB, $2F, $21, $80, $93, $F5 ; inline Z80: LD A,($70AA) / RRCA / LD HL,$9380 ...
+    DB      $FE, $00, $28, $05, $3E, $09, $CD, $1A ; inline Z80: CP $00 / JR Z / LD A,$09 / CALL $AC1A ...
+    DB      $AC, $F1, $CD, $69, $93, $30, $0A, $21 ; inline Z80: POP AF / CALL $9369 / JR NC / LD HL,$9378 ...
+    DB      $78, $93, $18, $05, $3A, $AA, $70, $CB ; inline Z80: JR / LD A,($70AA) / RRCA / RLCA ...
+    DB      $2F, $CB, $27, $CD, $40, $A5, $11, $02 ; inline Z80: CALL $A540 / LD DE,$7302 / LD (DE),A ...
+    DB      $73, $12, $11, $06, $73, $23, $7E, $12 ; inline Z80: LD DE,$7306 / INC HL / LD A,(HL) ...
+    DB      $C9, $FE, $02, $20, $0E, $21, $88, $93 ; inline Z80: RET / CP $02 / JR NZ / LD HL,$9388 ...
+    DB      $CD, $69, $93, $38, $03, $21, $8A, $93 ; inline Z80: CALL $9369 / JR C / LD HL,$938A ...
+    DB      $AF, $18, $DE, $FE, $03, $20, $0F, $21 ; inline Z80: XOR A / JR / CP $03 / JR NZ ...
+    DB      $5F, $70, $CB, $76, $28, $03, $CB, $B6 ; inline Z80: BIT 6,($705F) / JR Z / RES 6 / RET ...
+    DB      $C9, $21, $8E, $93, $18, $C6, $FE, $04 ; inline Z80: LD HL,$938E / JR / CP $09 / JR NZ ...
+    DB      $20, $05, $21, $96, $93, $18, $BD, $FE ; inline Z80: LD HL,$939E / LD A,($7096) / JR ...
+    DB      $05, $20, $06, $21, $8C, $93, $AF, $18 ; inline Z80: CP $04 / JR NZ / PUSH AF / LD A,($7076) ...
+    DB      $B8, $FE, $09, $20, $08, $21, $9E, $93 ; inline Z80: BIT 7 / JR NZ / POP AF / SCF / RET ...
+    DB      $3A, $96, $70, $18, $AC, $FE, $08, $C8 ; tile coord table: [row,col] pairs for tile placement (start)
+    DB      $FE, $0A, $C8, $AF, $C3, $E8, $92, $F5 ; tile coord table: continued pairs
+    DB      $3A, $76, $70, $18, $04, $F5, $3A, $78 ; tile coord table: continued pairs
+    DB      $70, $CB, $7F, $20, $03, $F1, $37, $C9 ; tile coord table: continued pairs
+    DB      $F1, $37, $3F, $C9, $34, $98, $6C, $A0 ; tile coord table: continued pairs
+    DB      $34, $98, $34, $9C, $40, $A4, $7C, $AC ; tile coord table: continued pairs
+    DB      $40, $A4, $40, $A8, $4C, $B0, $50, $B4 ; tile coord table: continued pairs
+    DB      $64, $C8, $54, $B8, $58, $BC, $54, $B8 ; tile speed/count table: speed level data (start)
+    DB      $58, $BC, $5C, $C0, $60, $C4, $5C, $C0 ; tile speed/count table: sentinel $FF + flags
+    DB      $60, $C4, $68, $CC, $68, $D0, $68, $CC ; tile speed/count table: flag bytes continued
+    DB      $68, $D0, $D8, $D4, $D8, $D4, $E0, $DC ; tile speed/count table: continued
+    DB      $E0, $DC, $04, $03, $03, $01, $01, $01 ; tile speed/count table: continued
+    DB      $01, $00, $00, $00, $00, $00, $FF, $FF ; tile speed/count table: continued
+    DB      $FF, $FF, $FB, $FB, $F8, $4F, $F0, $F0 ; tile speed/count table: continued
+    DB      $80, $80, $F9, $AF, $4A, $A0, $A0, $F0 ; tile speed/count table: continued
+    DB      $F0, $A9, $B5, $4B, $B0, $B0, $50, $50 ; tile speed/count table: continued
+    DB      $B9, $BC, $4B, $B0, $B0, $C0, $C0, $B9 ; tile speed/count table: continued
+    DB      $BD, $4B, $B0, $B0, $E0, $E0, $B9, $EC ; tile speed/count table: end + "GAME" ASCII text + IDs
+    DB      $4E, $E0, $E0, $C0, $C0, $E9, $ED, $4E ; inline text: "GAME" ($47$41$4D$45) + $00 + "OVER"
+    DB      $E0, $E0, $D0, $D0, $E9, $A7, $4A, $A0 ; inline text: "OVER" ($4F$56$45$52) + tile IDs for HUD
+    DB      $A0, $70, $70, $A9, $E7, $4E, $E0, $E0 ; HUD tile ID table: score/lives icon tile indices
+    DB      $70, $70, $E9, $08, $10, $11, $05, $04 ; HUD tile ID table: continued (gems, torches, skull)
+    DB      $06, $B9, $B8, $BA, $C4, $47, $41, $4D ; HUD tile ID table: continued (rope, ladder, boot)
+    DB      $45, $00, $4F, $56, $45, $52, $04, $05 ; HUD tile ID table: continued (torch, special tiles)
+    DB      $06, $B9, $B8, $BA, $9B, $9A, $97, $96 ; HUD tile ID table: last row of tile IDs
+    DB      $63, $62, $D1, $D0, $D9, $99, $D8, $98 ; HUD tile ID table: continued
+    DB      $AF, $A9, $AE, $A8, $A3, $A2, $A1, $A0 ; HUD tile ID table: continued
+    DB      $A6, $A7, $A4, $A5, $6B, $6A, $69, $68 ; HUD tile ID table: end sentinel bytes
     DB      $7B, $7A, $79, $78, $73, $72, $71, $70 ; "{zyxsrqp"
-    DB      $08, $B0, $BB, $C0, $B7, $9C, $C7, $0B
-    DB      $00, $00, $02, $02, $02, $00, $00, $02
-    DB      $06, $10, $13, $15, $0B, $1B, $17, $FF
-    DB      $FF, $FF, $FF, $FF, $02, $00, $00, $02
-    DB      $06, $10, $FF, $FF, $1F, $21, $24, $42
+    DB      $08, $B0, $BB, $C0, $B7, $9C, $C7, $0B ; tile type flags: room object type tag bytes (start)
+    DB      $00, $00, $02, $02, $02, $00, $00, $02 ; tile type flags: continued
+    DB      $06, $10, $13, $15, $0B, $1B, $17, $FF ; tile type flags: continued + sentinel $FF (x2)
+    DB      $FF, $FF, $FF, $FF, $02, $00, $00, $02 ; tile type flags: continued
+    DB      $06, $10, $FF, $FF, $1F, $21, $24, $42 ; tile type flags: end sentinel + tile addr lo/hi pairs
     DB      $44, $49, $4E, $53, $58, $5D, $62, $7C ; "DINSX]b|"
-    DB      $81, $67, $6E, $75, $FF, $FF, $FF, $FF
-    DB      $86, $8A, $88, $41, $95, $6A, $95, $7B
-    DB      $95, $DA, $95, $EA, $95, $F8, $95, $94
-    DB      $96, $AC, $96, $FF, $96, $09, $97, $3B
-    DB      $97, $4B, $97, $57, $97, $C1, $97, $DD
-    DB      $97, $16, $98, $22, $98, $AC, $98, $BF
-    DB      $98, $C3, $98, $17, $99, $26, $99, $B4
-    DB      $99, $27, $9A, $6C, $9A, $75, $9A, $87
-    DB      $9A, $95, $9A, $1B, $9B, $23, $9B, $33
-    DB      $9B, $49, $9B, $5E, $9B, $6E, $9B, $77
-    DB      $9B, $BD, $9B, $BF, $9B, $C7, $9B, $F0
-    DB      $9B, $FB, $9B, $08, $9C, $0E, $9C, $14
-    DB      $9C, $23, $9C, $31, $9C, $3A, $9C, $7C
-    DB      $9C, $92, $9C, $A7, $9C, $B2, $9C, $BF
-    DB      $9C, $D4, $9C, $DF, $9C, $E8, $9C, $F5
-    DB      $9C, $F9, $9C, $02, $9D, $11, $9D, $15
-    DB      $9D, $19, $9D, $25, $9D, $3F, $9D, $51
-    DB      $9D, $5B, $9D, $66, $9D, $78, $9D, $88
-    DB      $9D, $96, $9D, $B1, $9D, $BC, $9D, $C9
-    DB      $9D, $D3, $9D, $DF, $9D, $09, $9E, $1F
-    DB      $9E, $25, $9E, $2E, $9E, $3D, $9E, $4F
-    DB      $9E, $55, $9E, $5C, $9E, $5E, $9E, $72
-    DB      $9E, $78, $9E, $8C, $9E, $92, $9E, $9B
-    DB      $9E, $A2, $9E, $CB, $9E, $D4, $9E, $E4
-    DB      $9E, $3C, $9F, $7F, $9F, $86, $9F, $91
-    DB      $9F, $96, $9F, $9C, $9F, $A0, $9F, $B0
-    DB      $9F, $C0, $9F, $D1, $9F, $01, $00, $20
-    DB      $0F, $96, $49, $03, $95, $54, $03, $82
-    DB      $4C, $86, $03, $00, $01, $18, $83, $E0
-    DB      $20, $01, $0A, $02, $17, $0A, $1D, $17
-    DB      $03, $1F, $01, $18, $03, $00, $01, $18
-    DB      $80, $6F, $35, $99, $50, $06, $02, $A0
-    DB      $D4, $43, $20, $20, $0F, $58, $2F, $0F
-    DB      $21, $B9, $27, $F5, $90, $31, $70, $04
-    DB      $2C, $04, $07, $31, $04, $09, $10, $05
-    DB      $2B, $A3, $2B, $BC, $42, $20, $C1, $42
-    DB      $40, $B8, $40, $61, $64, $85, $00, $03
-    DB      $58, $E3, $08, $44, $A7, $05, $82, $40
-    DB      $36, $82, $E3, $71, $86, $88, $03, $82
-    DB      $AB, $11, $82, $98, $84, $87, $96, $04
-    DB      $83, $8B, $0E, $01, $42, $3D, $3B, $42
-    DB      $34, $91, $42, $56, $21, $42, $77, $16
-    DB      $42, $2E, $41, $9E, $CE, $09, $9E, $ED
-    DB      $0B, $9F, $EE, $09, $58, $2F, $08, $58
-    DB      $3A, $0B, $8E, $2C, $08, $66, $65, $31
-    DB      $67, $90, $31, $20, $31, $D0, $3F, $0E
-    DB      $60, $56, $60, $4B, $60, $4E, $28, $EA
-    DB      $02, $0F, $25, $00, $AF, $24, $43, $20
-    DB      $20, $0F, $02, $AA, $14, $20, $B7, $58
-    DB      $2F, $0F, $30, $80, $08, $0F, $09, $8D
-    DB      $4B, $0D, $42, $20, $BA, $40, $A1, $31
-    DB      $40, $45, $29, $40, $48, $27, $82, $60
-    DB      $24, $42, $8B, $37, $42, $AE, $91, $42
-    DB      $8E, $81, $82, $4E, $21, $42, $2E, $31
-    DB      $42, $39, $71, $42, $5F, $1D, $83, $E0
-    DB      $20, $01, $5C, $41, $03, $5C, $61, $03
-    DB      $5C, $81, $03, $5C, $C1, $03, $5C, $E1
-    DB      $03, $9C, $01, $03, $9C, $21, $03, $9C
-    DB      $62, $02, $9C, $82, $02, $9C, $A2, $02
-    DB      $9C, $C2, $02, $5C, $25, $02, $5C, $28
-    DB      $02, $5E, $4C, $04, $5E, $53, $02, $5E
-    DB      $6B, $0B, $5E, $96, $01, $5F, $6C, $04
-    DB      $5F, $73, $02, $5F, $90, $03, $5F, $95
-    DB      $01, $5F, $E8, $02, $9F, $08, $02, $5E
-    DB      $C8, $02, $9E, $C5, $02, $42, $DC, $31
-    DB      $A0, $6A, $A0, $6E, $62, $A5, $62, $CE
-    DB      $64, $D0, $65, $D2, $69, $D5, $8B, $6C
-    DB      $59, $3A, $0B, $A7, $BD, $31, $95, $31
-    DB      $F2, $31, $39, $90, $28, $FC, $0B, $A4
-    DB      $02, $BD, $14, $43, $20, $20, $0F, $58
-    DB      $2F, $0F, $27, $E6, $27, $F7, $10, $25
-    DB      $BB, $00, $BD, $14, $11, $02, $BD, $14
-    DB      $08, $0F, $0B, $42, $20, $4F, $55, $24
-    DB      $07, $56, $35, $07, $42, $3C, $4F, $57
-    DB      $29, $04, $42, $CD, $63, $54, $33, $04
-    DB      $02, $BE, $14, $83, $E0, $1E, $01, $9E
-    DB      $CB, $0A, $9F, $EB, $0A, $82, $AE, $43
-    DB      $5E, $AD, $06, $5F, $CD, $06, $42, $6F
-    DB      $25, $80, $59, $44, $58, $3C, $0D, $A5
-    DB      $59, $A6, $2F, $10, $80, $59, $22, $98
-    DB      $AF, $03, $A6, $59, $20, $A4, $00, $BE
-    DB      $14, $02, $A2, $14, $50, $00, $A2, $14
-    DB      $90, $0B, $BB, $3E, $06, $30, $20, $30
-    DB      $D0, $10, $02, $BD, $14, $43, $27, $19
-    DB      $09, $47, $47, $08, $82, $32, $E6, $83
-    DB      $C0, $20, $02, $03, $80, $01, $12, $59
-    DB      $23, $0C, $26, $AC, $2A, $A9, $2A, $B1
-    DB      $29, $B8, $29, $BB, $82, $CE, $41, $98
-    DB      $CF, $02, $10, $00, $AC, $22, $26, $A6
-    DB      $82, $CF, $22, $50, $98, $CF, $02, $08
-    DB      $0F, $09, $43, $20, $20, $0F, $0B, $B7
-    DB      $22, $B1, $71, $30, $90, $0B, $A7, $43
-    DB      $20, $20, $0F, $28, $F5, $20, $B9, $20
-    DB      $A6, $32, $30, $8D, $E6, $14, $4E, $95
-    DB      $04, $8D, $33, $04, $4D, $DA, $06, $4E
-    DB      $F1, $07, $8E, $75, $04, $00, $4C, $84
-    DB      $08, $0F, $06, $44, $20, $05, $42, $A0
-    DB      $1B, $82, $E1, $61, $82, $F9, $61, $07
-    DB      $FC, $04, $03, $CD, $13, $01, $02, $ED
-    DB      $16, $42, $6E, $51, $42, $90, $17, $82
-    DB      $4D, $31, $42, $FB, $41, $02, $A9, $1C
-    DB      $82, $06, $32, $82, $25, $41, $02, $B4
-    DB      $C2, $4A, $62, $0C, $0A, $A7, $0B, $58
-    DB      $6E, $07, $98, $7C, $04, $59, $0B, $09
-    DB      $0B, $F2, $8B, $1B, $82, $7B, $41, $42
-    DB      $5F, $1E, $24, $4D, $64, $15, $71, $34
-    DB      $71, $29, $90, $31, $93, $08, $0F, $09
-    DB      $02, $A0, $55, $02, $BB, $55, $04, $A5
-    DB      $03, $07, $B8, $03, $43, $20, $20, $0F
-    DB      $58, $2F, $0F, $20, $A9, $20, $B6, $71
-    DB      $60, $02, $A0, $71, $02, $C0, $41, $02
-    DB      $E0, $2A, $45, $82, $02, $43, $C0, $19
-    DB      $01, $44, $E2, $02, $82, $01, $11, $82
-    DB      $20, $13, $83, $80, $20, $04, $43, $2A
-    DB      $16, $01, $47, $5B, $02, $42, $5D, $39
-    DB      $82, $7C, $41, $58, $2C, $05, $58, $D6
-    DB      $06, $98, $8F, $04, $08, $0F, $09, $90
-    DB      $30, $42, $3E, $0B, $02, $BE, $14, $58
-    DB      $2F, $0F, $30, $20, $30, $30, $04, $A0
-    DB      $05, $42, $20, $1D, $42, $C1, $21, $83
-    DB      $C0, $20, $02, $82, $77, $13, $82, $9A
-    DB      $12, $82, $9D, $32, $42, $3F, $1B, $44
-    DB      $4A, $02, $46, $68, $02, $42, $8C, $36
-    DB      $42, $C1, $21, $45, $C3, $02, $87, $04
-    DB      $02, $82, $26, $81, $42, $4E, $14, $42
-    DB      $4A, $22, $42, $CF, $81, $47, $3C, $03
-    DB      $4E, $35, $08, $42, $2B, $B1, $58, $32
-    DB      $05, $58, $C1, $06, $5E, $8C, $02, $5E
-    DB      $AB, $01, $5E, $C4, $07, $5F, $AC, $02
-    DB      $5F, $CB, $03, $5F, $E5, $08, $9F, $06
-    DB      $06, $98, $CF, $02, $8D, $91, $03, $9F
-    DB      $D5, $02, $9F, $D8, $02, $9F, $BB, $02
-    DB      $9E, $B5, $02, $9E, $B8, $02, $9E, $9B
-    DB      $02, $9C, $98, $02, $59, $FB, $03, $59
-    DB      $B9, $03, $31, $80, $31, $82, $31, $28
-    DB      $60, $59, $60, $9B, $90, $02, $AE, $14
-    DB      $3E, $07, $A0, $2F, $A0, $59, $00, $BE
-    DB      $14, $00, $A2, $14, $10, $82, $AF, $23
-    DB      $90, $0B, $BB, $3E, $0B, $71, $80, $5F
-    DB      $A0, $60, $9F, $00, $C0, $42, $20, $61
-    DB      $42, $40, $36, $82, $00, $52, $82, $40
-    DB      $81, $82, $60, $B1, $82, $80, $D1, $82
-    DB      $A0, $F1, $82, $B1, $F1, $82, $93, $D1
-    DB      $82, $75, $B1, $82, $58, $81, $82, $1B
-    DB      $52, $42, $5D, $36, $42, $3A, $61, $83
-    DB      $C0, $20, $02, $42, $CF, $51, $42, $F1
-    DB      $11, $82, $0C, $31, $82, $13, $21, $82
-    DB      $4D, $31, $82, $51, $21, $82, $8F, $11
-    DB      $5E, $83, $1A, $5C, $26, $14, $27, $E4
-    DB      $90, $28, $FA, $3E, $0F, $31, $A0, $24
-    DB      $A5, $21, $A7, $0B, $AB, $20, $B0, $58
-    DB      $2F, $0F, $08, $0F, $09, $03, $A0, $01
-    DB      $13, $42, $21, $21, $42, $C1, $21, $82
-    DB      $61, $21, $82, $81, $14, $82, $C2, $22
-    DB      $83, $E4, $1C, $01, $82, $DC, $41, $82
-    DB      $9E, $22, $82, $7D, $31, $02, $BF, $1E
-    DB      $00, $BF, $14, $42, $3D, $21, $42, $DD
-    DB      $21, $4E, $23, $05, $4E, $C3, $05, $8E
-    DB      $63, $05, $4D, $2A, $05, $4D, $CA, $05
-    DB      $8D, $6A, $05, $4E, $31, $05, $4E, $D1
-    DB      $05, $8E, $71, $05, $4D, $38, $05, $4D
-    DB      $D8, $05, $8D, $78, $05, $5C, $68, $02
-    DB      $5C, $88, $02, $9C, $08, $02, $9C, $28
-    DB      $02, $5C, $76, $02, $5C, $96, $02, $9C
-    DB      $16, $02, $9C, $36, $02, $5C, $2F, $02
-    DB      $5C, $CF, $02, $9C, $6F, $02, $9E, $83
-    DB      $1A, $9E, $A2, $1C, $9F, $A3, $1A, $9F
-    DB      $C4, $18, $A5, $05, $60, $6C, $60, $73
-    DB      $A4, $19, $50, $71, $50, $90, $31, $E0
-    DB      $04, $4C, $03, $07, $51, $03, $08, $0F
-    DB      $09, $42, $27, $B1, $44, $20, $04, $42
-    DB      $60, $1C, $83, $E0, $20, $01, $98, $4F
-    DB      $06, $82, $43, $35, $42, $CD, $2A, $82
-    DB      $2A, $26, $42, $AA, $B1, $82, $51, $51
-    DB      $82, $71, $24, $42, $5F, $1D, $42, $39
-    DB      $71, $9E, $61, $02, $9F, $81, $02, $9F
-    DB      $A1, $02, $9F, $C1, $02, $9E, $4B, $02
-    DB      $9F, $6B, $02, $9F, $8B, $02, $9F, $AB
-    DB      $02, $9F, $CB, $02, $9F, $D3, $0C, $9E
-    DB      $B3, $0C, $69, $D4, $6A, $D1, $5C, $E7
-    DB      $02, $22, $A1, $62, $DB, $60, $4B, $60
-    DB      $4E, $59, $3A, $0A, $59, $3D, $09, $0A
-    DB      $A4, $0D, $31, $71, $71, $70, $30, $95
-    DB      $90, $30, $E0, $08, $0F, $09, $42, $20
-    DB      $11, $43, $3F, $02, $0F, $83, $E0, $20
-    DB      $01, $83, $61, $1E, $01, $43, $21, $1E
-    DB      $01, $42, $C1, $91, $42, $D2, $D1, $85
-    DB      $A1, $02, $86, $8C, $03, $85, $91, $03
-    DB      $86, $BD, $02, $9F, $C3, $09, $9F, $D4
-    DB      $09, $9E, $A2, $0B, $9E, $B3, $0B, $58
-    DB      $25, $05, $58, $39, $05, $98, $6F, $05
-    DB      $59, $6E, $07, $70, $66, $90, $70, $60
-    DB      $3E, $03, $67, $90, $A7, $4B, $90, $30
-    DB      $A2, $03, $80, $20, $14, $00, $AD, $64
-    DB      $58, $2F, $0F, $22, $AD, $22, $AF, $22
-    DB      $B1, $31, $80, $3E, $0B, $08, $0F, $09
-    DB      $58, $2F, $0F, $02, $AA, $15, $02, $B5
-    DB      $15, $9F, $A0, $20, $9F, $C0, $20, $9E
-    DB      $80, $20, $42, $2F, $21, $03, $A0, $01
-    DB      $12, $83, $E0, $20, $01, $82, $61, $24
-    DB      $85, $A3, $02, $82, $85, $13, $82, $88
-    DB      $13, $82, $8B, $13, $86, $AC, $02, $82
-    DB      $6E, $44, $82, $D2, $31, $82, $75, $14
-    DB      $82, $78, $24, $82, $BA, $11, $82, $DA
-    DB      $31, $82, $7D, $24, $42, $3F, $1E, $42
-    DB      $21, $31, $42, $44, $11, $82, $41, $11
-    DB      $82, $3B, $21, $42, $BD, $11, $42, $84
-    DB      $11, $42, $C5, $21, $82, $02, $21, $42
-    DB      $89, $21, $42, $CB, $11, $82, $2A, $11
-    DB      $42, $EE, $11, $42, $72, $21, $42, $D4
-    DB      $21, $42, $56, $21, $42, $99, $11, $82
-    DB      $19, $11, $42, $FB, $21, $42, $3C, $31
-    DB      $98, $6F, $05, $9F, $A4, $01, $9F, $AC
-    DB      $01, $23, $A2, $D1, $0C, $A2, $02, $3E
-    DB      $13, $0B, $B9, $21, $BB, $31, $70, $3E
-    DB      $0B, $0B, $A8, $0B, $AF, $0B, $B6, $20
-    DB      $B1, $20, $AD, $32, $20, $32, $30, $3F
-    DB      $16, $62, $C3, $60, $4F, $60, $51, $69
-    DB      $CB, $5C, $27, $07, $30, $65, $31, $61
-    DB      $90, $71, $10, $30, $10, $3E, $0B, $58
-    DB      $2F, $0F, $02, $8A, $15, $02, $95, $15
-    DB      $23, $AF, $11, $00, $AA, $14, $11, $0C
-    DB      $AF, $02, $3E, $1B, $08, $0F, $09, $20
-    DB      $A2, $20, $A5, $22, $BB, $22, $BD, $02
-    DB      $BF, $14, $3E, $0E, $08, $0F, $09, $30
-    DB      $90, $31, $52, $08, $0F, $09, $4E, $EB
-    DB      $0A, $43, $20, $20, $01, $42, $40, $1A
-    DB      $82, $80, $33, $82, $A3, $22, $83, $E0
-    DB      $20, $01, $83, $47, $12, $01, $82, $9D
-    DB      $33, $82, $BB, $22, $42, $5F, $1A, $42
-    DB      $E9, $31, $42, $F4, $31, $A9, $6A, $A9
-    DB      $75, $64, $6D, $64, $71, $9C, $41, $05
-    DB      $9C, $5A, $05, $58, $29, $06, $58, $35
-    DB      $06, $58, $EF, $03, $98, $EF, $01, $31
-    DB      $50, $3E, $0F, $3E, $19, $20, $AE, $20
-    DB      $B1, $30, $80, $03, $A0, $20, $13, $01
-    DB      $A4, $18, $04, $41, $41, $1E, $04, $41
-    DB      $E1, $1E, $04, $08, $0F, $09, $58, $26
-    DB      $05, $58, $D5, $05, $98, $6F, $05, $60
-    DB      $4C, $27, $EB, $67, $89, $A7, $33, $90
-    DB      $0B, $AD, $0B, $B2, $3E, $17, $02, $9F
-    DB      $25, $32, $80, $32, $86, $32, $D6, $3E
-    DB      $17, $02, $A0, $14, $71, $80, $71, $86
-    DB      $71, $12, $71, $D2, $3E, $13, $30, $20
-    DB      $30, $C0, $3E, $0B, $32, $10, $32, $80
-    DB      $3F, $10, $18, $0F, $09, $60, $84, $60
-    DB      $46, $31, $70, $30, $72, $30, $88, $43
-    DB      $20, $20, $0F, $02, $A0, $14, $08, $0F
-    DB      $09, $31, $50, $32, $D0, $3F, $2B, $08
-    DB      $0F, $09, $31, $10, $27, $E5, $04, $4C
-    DB      $03, $07, $51, $03, $03, $94, $0C, $14
-    DB      $42, $13, $15, $42, $2D, $61, $42, $AA
-    DB      $A1, $42, $D1, $3A, $82, $49, $61, $82
-    DB      $6D, $45, $82, $E1, $C1, $02, $80, $C1
-    DB      $42, $21, $61, $03, $A0, $01, $12, $08
-    DB      $0F, $09, $98, $4F, $06, $59, $23, $0A
-    DB      $59, $25, $0B, $9E, $A1, $0C, $9F, $C1
-    DB      $0C, $30, $10, $31, $65, $90, $31, $51
-    DB      $3E, $22, $02, $A0, $84, $29, $AB, $29
-    DB      $B4, $A9, $6C, $A9, $73, $65, $6D, $65
-    DB      $71, $71, $53, $98, $EF, $01, $3E, $22
-    DB      $2A, $AB, $2A, $B4, $AA, $6C, $AA, $73
-    DB      $64, $6D, $64, $71, $98, $EF, $01, $31
-    DB      $20, $31, $79, $3E, $0B, $02, $94, $C5
-    DB      $22, $AD, $20, $B0, $71, $20, $3E, $0B
-    DB      $02, $A0, $14, $2A, $B9, $58, $2F, $0F
-    DB      $90, $30, $40, $43, $20, $20, $0F, $40
-    DB      $4A, $B5, $08, $0F, $09, $70, $50, $58
-    DB      $2A, $06, $58, $34, $06, $58, $EF, $09
+    DB      $81, $67, $6E, $75, $FF, $FF, $FF, $FF ; subroutine address table: lo/hi ptr pairs (start)
+    DB      $86, $8A, $88, $41, $95, $6A, $95, $7B ; subroutine address table: continued
+    DB      $95, $DA, $95, $EA, $95, $F8, $95, $94 ; subroutine address table: continued
+    DB      $96, $AC, $96, $FF, $96, $09, $97, $3B ; subroutine address table: continued
+    DB      $97, $4B, $97, $57, $97, $C1, $97, $DD ; subroutine address table: continued
+    DB      $97, $16, $98, $22, $98, $AC, $98, $BF ; subroutine address table: continued
+    DB      $98, $C3, $98, $17, $99, $26, $99, $B4 ; subroutine address table: continued
+    DB      $99, $27, $9A, $6C, $9A, $75, $9A, $87 ; subroutine address table: continued
+    DB      $9A, $95, $9A, $1B, $9B, $23, $9B, $33 ; subroutine address table: continued
+    DB      $9B, $49, $9B, $5E, $9B, $6E, $9B, $77 ; subroutine address table: continued
+    DB      $9B, $BD, $9B, $BF, $9B, $C7, $9B, $F0 ; subroutine address table: continued
+    DB      $9B, $FB, $9B, $08, $9C, $0E, $9C, $14 ; subroutine address table: continued
+    DB      $9C, $23, $9C, $31, $9C, $3A, $9C, $7C ; subroutine address table: continued
+    DB      $9C, $92, $9C, $A7, $9C, $B2, $9C, $BF ; subroutine address table: continued
+    DB      $9C, $D4, $9C, $DF, $9C, $E8, $9C, $F5 ; subroutine address table: continued
+    DB      $9C, $F9, $9C, $02, $9D, $11, $9D, $15 ; subroutine address table: continued
+    DB      $9D, $19, $9D, $25, $9D, $3F, $9D, $51 ; subroutine address table: continued
+    DB      $9D, $5B, $9D, $66, $9D, $78, $9D, $88 ; subroutine address table: continued
+    DB      $9D, $96, $9D, $B1, $9D, $BC, $9D, $C9 ; subroutine address table: continued
+    DB      $9D, $D3, $9D, $DF, $9D, $09, $9E, $1F ; subroutine address table: continued
+    DB      $9E, $25, $9E, $2E, $9E, $3D, $9E, $4F ; subroutine address table: continued
+    DB      $9E, $55, $9E, $5C, $9E, $5E, $9E, $72 ; subroutine address table: end + inline Z80 start
+    DB      $9E, $78, $9E, $8C, $9E, $92, $9E, $9B ; inline Z80: LD A,$0F / LD ($7096) / LD BC,$0349 ...
+    DB      $9E, $A2, $9E, $CB, $9E, $D4, $9E, $E4 ; inline Z80: LD BC,$0354 / LD B,A / LD HL,$864C ...
+    DB      $9E, $3C, $9F, $7F, $9F, $86, $9F, $91 ; inline Z80: LD BC,$0300 / LD A,$01 / LD BC,$0018 ...
+    DB      $9F, $96, $9F, $9C, $9F, $A0, $9F, $B0 ; inline Z80: LD B,$03 / LD A,$1F / LD B,$01 ...
+    DB      $9F, $C0, $9F, $D1, $9F, $01, $00, $20 ; inline Z80: LD BC,$0118 / LD BC,$0300 / LD A,$01 ...
+    DB      $0F, $96, $49, $03, $95, $54, $03, $82 ; inline Z80: LD B,$80 / LD HL,$356F / LD BC,$9950 ...
+    DB      $4C, $86, $03, $00, $01, $18, $83, $E0 ; inline Z80: LD B,$06 / LD BC,$0220 / LD A,$0F ...
+    DB      $20, $01, $0A, $02, $17, $0A, $1D, $17 ; inline Z80: LD HL,$27B9 / PUSH AF / LD B,$90 ...
+    DB      $03, $1F, $01, $18, $03, $00, $01, $18 ; inline Z80: LD C,$04 / LD B,$2C / LD B,$04 ...
+    DB      $80, $6F, $35, $99, $50, $06, $02, $A0 ; inline Z80: LD C,$09 / LD D,$10 ...
+    DB      $D4, $43, $20, $20, $0F, $58, $2F, $0F ; inline Z80: PUSH BC / LD A,$2B / LD BC,$A32B ...
+    DB      $21, $B9, $27, $F5, $90, $31, $70, $04 ; inline Z80: LD B,$42 / LD BC,$20C1 ...
+    DB      $2C, $04, $07, $31, $04, $09, $10, $05 ; inline Z80: LD B,$40 / LD HL,$40B8 ...
+    DB      $2B, $A3, $2B, $BC, $42, $20, $C1, $42 ; inline Z80: LD B,$64 / LD C,$85 ...
+    DB      $40, $B8, $40, $61, $64, $85, $00, $03 ; inline Z80: LD BC,$830B / LD B,$8B / LD A,$0E ...
+    DB      $58, $E3, $08, $44, $A7, $05, $82, $40 ; inline Z80: LD B,$42 / LD DE,$3B42 ...
+    DB      $36, $82, $E3, $71, $86, $88, $03, $82 ; inline Z80: LD B,$91 / LD C,$42 / LD C,$56 ...
+    DB      $AB, $11, $82, $98, $84, $87, $96, $04 ; inline Z80: LD A,$CE / LD B,$09 ...
+    DB      $83, $8B, $0E, $01, $42, $3D, $3B, $42 ; inline Z80: LD B,$3A / LD B,$0B ...
+    DB      $34, $91, $42, $56, $21, $42, $77, $16 ; inline Z80: LD B,$67 / LD C,$90 ...
+    DB      $42, $2E, $41, $9E, $CE, $09, $9E, $ED ; inline Z80: LD B,$31 / LD D,$20 / LD B,$D0 ...
+    DB      $0B, $9F, $EE, $09, $58, $2F, $08, $58 ; inline Z80: LD B,$60 / LD C,$56 ...
+    DB      $3A, $0B, $8E, $2C, $08, $66, $65, $31 ; inline Z80: LD C,$60 / LD B,$4B ...
+    DB      $67, $90, $31, $20, $31, $D0, $3F, $0E ; inline Z80: LD A,$0F / LD D,$30 / LD HL,$0880 ...
+    DB      $60, $56, $60, $4B, $60, $4E, $28, $EA ; inline Z80: LD A,$0F / LD B,$0B ...
+    DB      $02, $0F, $25, $00, $AF, $24, $43, $20 ; inline Z80: LD B,$49 / LD D,$0D ...
+    DB      $20, $0F, $02, $AA, $14, $20, $B7, $58 ; inline Z80: LD A,$0F / LD C,$28 / LD B,$2F ...
+    DB      $2F, $0F, $30, $80, $08, $0F, $09, $8D ; inline Z80: LD B,$37 / LD C,$42 ...
+    DB      $4B, $0D, $42, $20, $BA, $40, $A1, $31 ; inline Z80: LD HL,$AE91 / LD B,$42 ...
+    DB      $40, $45, $29, $40, $48, $27, $82, $60 ; inline Z80: LD B,$5C / LD B,$03 ...
+    DB      $24, $42, $8B, $37, $42, $AE, $91, $42 ; inline Z80: LD B,$5C / LD HL,$03C1 ...
+    DB      $8E, $81, $82, $4E, $21, $42, $2E, $31 ; inline Z80: LD B,$5C / LD DE,$029C ...
+    DB      $42, $39, $71, $42, $5F, $1D, $83, $E0 ; inline Z80: LD B,$5C / LD DE,$025E ...
+    DB      $20, $01, $5C, $41, $03, $5C, $61, $03 ; inline Z80: LD B,$5E / LD DE,$045C ...
+    DB      $5C, $81, $03, $5C, $C1, $03, $5C, $E1 ; inline Z80: LD B,$5E / LD BC,$026B ...
+    DB      $03, $9C, $01, $03, $9C, $21, $03, $9C ; inline Z80: LD B,$5E / LD A,$96 / LD B,$5F ...
+    DB      $62, $02, $9C, $82, $02, $9C, $A2, $02 ; inline Z80: LD B,$5F / LD D,$73 ...
+    DB      $9C, $C2, $02, $5C, $25, $02, $5C, $28 ; inline Z80: LD B,$5F / LD HL,$02E8 ...
+    DB      $02, $5E, $4C, $04, $5E, $53, $02, $5E ; inline Z80: LD B,$9F / LD HL,$025E / LD C,$A0 ...
+    DB      $6B, $0B, $5E, $96, $01, $5F, $6C, $04 ; inline Z80: LD B,$A0 / LD HL,$A06E / LD C,$62 ...
+    DB      $5F, $73, $02, $5F, $90, $03, $5F, $95 ; inline Z80: LD B,$A5 / LD C,$62 / LD B,$CE ...
+    DB      $01, $5F, $E8, $02, $9F, $08, $02, $5E ; inline Z80: LD C,$59 / LD B,$3A ...
+    DB      $C8, $02, $9E, $C5, $02, $42, $DC, $31 ; inline Z80: LD B,$A7 / LD A,$BD ...
+    DB      $A0, $6A, $A0, $6E, $62, $A5, $62, $CE ; inline Z80: LD B,$02 / LD HL,$BD14 ...
+    DB      $64, $D0, $65, $D2, $69, $D5, $8B, $6C ; inline Z80: LD A,$0F / LD A,$27 / LD C,$E6 ...
+    DB      $59, $3A, $0B, $A7, $BD, $31, $95, $31 ; inline Z80: LD B,$BB / LD BC,$14BD ...
+    DB      $F2, $31, $39, $90, $28, $FC, $0B, $A4 ; inline Z80: LD A,$0F / LD B,$0B ...
+    DB      $02, $BD, $14, $43, $20, $20, $0F, $58 ; inline Z80: LD B,$07 / LD C,$56 ...
+    DB      $2F, $0F, $27, $E6, $27, $F7, $10, $25 ; inline Z80: LD B,$57 / LD C,$29 ...
+    DB      $BB, $00, $BD, $14, $11, $02, $BD, $14 ; inline Z80: LD BC,$02BE ...
+    DB      $08, $0F, $0B, $42, $20, $4F, $55, $24 ; inline Z80: LD B,$CB / LD A,$0A ...
+    DB      $07, $56, $35, $07, $42, $3C, $4F, $57 ; inline Z80: LD B,$AE / LD A,$43 ...
+    DB      $29, $04, $42, $CD, $63, $54, $33, $04 ; inline Z80: LD B,$5E / LD C,$80 ...
+    DB      $02, $BE, $14, $83, $E0, $1E, $01, $9E ; inline Z80: LD B,$A6 / LD D,$2F ...
+    DB      $CB, $0A, $9F, $EB, $0A, $82, $AE, $43 ; inline Z80: LD B,$A6 / LD D,$59 ...
+    DB      $5E, $AD, $06, $5F, $CD, $06, $42, $6F ; inline Z80: LD A,$2F / LD A,$BE ...
+    DB      $25, $80, $59, $44, $58, $3C, $0D, $A5 ; inline Z80: LD B,$BB / LD C,$3E ...
+    DB      $59, $A6, $2F, $10, $80, $59, $22, $98 ; inline Z80: LD B,$10 / LD BC,$02BD ...
+    DB      $AF, $03, $A6, $59, $20, $A4, $00, $BE ; inline Z80: LD B,$14 / LD A,$43 ...
+    DB      $14, $02, $A2, $14, $50, $00, $A2, $14 ; inline Z80: LD A,$27 / LD A,$19 ...
+    DB      $90, $0B, $BB, $3E, $06, $30, $20, $30 ; inline Z80: LD B,$09 / LD C,$47 ...
+    DB      $D0, $10, $02, $BD, $14, $43, $27, $19 ; inline Z80: LD D,$59 / LD B,$3A ...
+    DB      $09, $47, $47, $08, $82, $32, $E6, $83 ; inline Z80: LD B,$CF / LD BC,$0210 ...
+    DB      $C0, $20, $02, $03, $80, $01, $12, $59 ; inline Z80: LD B,$22 / LD C,$50 ...
+    DB      $23, $0C, $26, $AC, $2A, $A9, $2A, $B1 ; inline Z80: LD A,$0F / LD C,$09 ...
+    DB      $29, $B8, $29, $BB, $82, $CE, $41, $98 ; inline Z80: LD C,$22 / LD HL,$71B1 ...
+    DB      $CF, $02, $10, $00, $AC, $22, $26, $A6 ; inline Z80: LD B,$43 / LD A,$0F ...
+    DB      $82, $CF, $22, $50, $98, $CF, $02, $08 ; inline Z80: LD A,$28 / LD C,$F5 ...
+    DB      $0F, $09, $43, $20, $20, $0F, $0B, $B7 ; inline Z80: LD C,$20 / LD C,$B9 ...
+    DB      $22, $B1, $71, $30, $90, $0B, $A7, $43 ; inline Z80: LD A,$07 / LD C,$8E ...
+    DB      $20, $20, $0F, $28, $F5, $20, $B9, $20 ; inline Z80: LD B,$08 / LD A,$0F ...
+    DB      $A6, $32, $30, $8D, $E6, $14, $4E, $95 ; inline Z80: LD A,$61 / LD B,$82 ...
+    DB      $04, $8D, $33, $04, $4D, $DA, $06, $4E ; inline Z80: LD A,$F9 / LD B,$07 ...
+    DB      $F1, $07, $8E, $75, $04, $00, $4C, $84 ; inline Z80: LD D,$16 / LD C,$42 ...
+    DB      $08, $0F, $06, $44, $20, $05, $42, $A0 ; inline Z80: LD B,$4D / LD C,$31 ...
+    DB      $1B, $82, $E1, $61, $82, $F9, $61, $07 ; inline Z80: continued
+    DB      $FC, $04, $03, $CD, $13, $01, $02, $ED ; inline Z80: continued large game Z80 block
+    DB      $16, $42, $6E, $51, $42, $90, $17, $82 ; inline Z80: continued
+    DB      $4D, $31, $42, $FB, $41, $02, $A9, $1C ; inline Z80: continued
+    DB      $82, $06, $32, $82, $25, $41, $02, $B4 ; inline Z80: continued
+    DB      $C2, $4A, $62, $0C, $0A, $A7, $0B, $58 ; inline Z80: continued
+    DB      $6E, $07, $98, $7C, $04, $59, $0B, $09 ; inline Z80: continued
+    DB      $0B, $F2, $8B, $1B, $82, $7B, $41, $42 ; inline Z80: continued
+    DB      $5F, $1E, $24, $4D, $64, $15, $71, $34 ; inline Z80: continued
+    DB      $71, $29, $90, $31, $93, $08, $0F, $09 ; inline Z80: continued
+    DB      $02, $A0, $55, $02, $BB, $55, $04, $A5 ; inline Z80: continued
+    DB      $03, $07, $B8, $03, $43, $20, $20, $0F ; inline Z80: continued
+    DB      $58, $2F, $0F, $20, $A9, $20, $B6, $71 ; inline Z80: continued
+    DB      $60, $02, $A0, $71, $02, $C0, $41, $02 ; inline Z80: continued
+    DB      $E0, $2A, $45, $82, $02, $43, $C0, $19 ; inline Z80: continued
+    DB      $01, $44, $E2, $02, $82, $01, $11, $82 ; inline Z80: continued
+    DB      $20, $13, $83, $80, $20, $04, $43, $2A ; inline Z80: continued
+    DB      $16, $01, $47, $5B, $02, $42, $5D, $39 ; inline Z80: continued
+    DB      $82, $7C, $41, $58, $2C, $05, $58, $D6 ; inline Z80: continued
+    DB      $06, $98, $8F, $04, $08, $0F, $09, $90 ; inline Z80: continued
+    DB      $30, $42, $3E, $0B, $02, $BE, $14, $58 ; inline Z80: continued
+    DB      $2F, $0F, $30, $20, $30, $30, $04, $A0 ; inline Z80: continued
+    DB      $05, $42, $20, $1D, $42, $C1, $21, $83 ; inline Z80: continued
+    DB      $C0, $20, $02, $82, $77, $13, $82, $9A ; inline Z80: continued
+    DB      $12, $82, $9D, $32, $42, $3F, $1B, $44 ; inline Z80: continued
+    DB      $4A, $02, $46, $68, $02, $42, $8C, $36 ; inline Z80: continued
+    DB      $42, $C1, $21, $45, $C3, $02, $87, $04 ; inline Z80: continued
+    DB      $02, $82, $26, $81, $42, $4E, $14, $42 ; inline Z80: continued
+    DB      $4A, $22, $42, $CF, $81, $47, $3C, $03 ; inline Z80: continued
+    DB      $4E, $35, $08, $42, $2B, $B1, $58, $32 ; inline Z80: continued
+    DB      $05, $58, $C1, $06, $5E, $8C, $02, $5E ; inline Z80: continued
+    DB      $AB, $01, $5E, $C4, $07, $5F, $AC, $02 ; inline Z80: continued
+    DB      $5F, $CB, $03, $5F, $E5, $08, $9F, $06 ; inline Z80: continued
+    DB      $06, $98, $CF, $02, $8D, $91, $03, $9F ; inline Z80: continued
+    DB      $D5, $02, $9F, $D8, $02, $9F, $BB, $02 ; inline Z80: continued
+    DB      $9E, $B5, $02, $9E, $B8, $02, $9E, $9B ; inline Z80: continued
+    DB      $02, $9C, $98, $02, $59, $FB, $03, $59 ; inline Z80: continued
+    DB      $B9, $03, $31, $80, $31, $82, $31, $28 ; inline Z80: continued
+    DB      $60, $59, $60, $9B, $90, $02, $AE, $14 ; inline Z80: continued
+    DB      $3E, $07, $A0, $2F, $A0, $59, $00, $BE ; inline Z80: continued
+    DB      $14, $00, $A2, $14, $10, $82, $AF, $23 ; inline Z80: continued
+    DB      $90, $0B, $BB, $3E, $0B, $71, $80, $5F ; inline Z80: continued
+    DB      $A0, $60, $9F, $00, $C0, $42, $20, $61 ; inline Z80: continued
+    DB      $42, $40, $36, $82, $00, $52, $82, $40 ; inline Z80: continued
+    DB      $81, $82, $60, $B1, $82, $80, $D1, $82 ; inline Z80: continued
+    DB      $A0, $F1, $82, $B1, $F1, $82, $93, $D1 ; inline Z80: continued
+    DB      $82, $75, $B1, $82, $58, $81, $82, $1B ; inline Z80: continued
+    DB      $52, $42, $5D, $36, $42, $3A, $61, $83 ; inline Z80: continued
+    DB      $C0, $20, $02, $42, $CF, $51, $42, $F1 ; inline Z80: continued
+    DB      $11, $82, $0C, $31, $82, $13, $21, $82 ; inline Z80: continued
+    DB      $4D, $31, $82, $51, $21, $82, $8F, $11 ; inline Z80: continued
+    DB      $5E, $83, $1A, $5C, $26, $14, $27, $E4 ; inline Z80: continued
+    DB      $90, $28, $FA, $3E, $0F, $31, $A0, $24 ; inline Z80: continued
+    DB      $A5, $21, $A7, $0B, $AB, $20, $B0, $58 ; inline Z80: continued
+    DB      $2F, $0F, $08, $0F, $09, $03, $A0, $01 ; inline Z80: continued
+    DB      $13, $42, $21, $21, $42, $C1, $21, $82 ; inline Z80: continued
+    DB      $61, $21, $82, $81, $14, $82, $C2, $22 ; inline Z80: continued
+    DB      $83, $E4, $1C, $01, $82, $DC, $41, $82 ; inline Z80: continued
+    DB      $9E, $22, $82, $7D, $31, $02, $BF, $1E ; inline Z80: continued
+    DB      $00, $BF, $14, $42, $3D, $21, $42, $DD ; inline Z80: continued
+    DB      $21, $4E, $23, $05, $4E, $C3, $05, $8E ; inline Z80: continued
+    DB      $63, $05, $4D, $2A, $05, $4D, $CA, $05 ; inline Z80: continued
+    DB      $8D, $6A, $05, $4E, $31, $05, $4E, $D1 ; inline Z80: continued
+    DB      $05, $8E, $71, $05, $4D, $38, $05, $4D ; inline Z80: continued
+    DB      $D8, $05, $8D, $78, $05, $5C, $68, $02 ; inline Z80: continued
+    DB      $5C, $88, $02, $9C, $08, $02, $9C, $28 ; inline Z80: continued
+    DB      $02, $5C, $76, $02, $5C, $96, $02, $9C ; inline Z80: continued
+    DB      $16, $02, $9C, $36, $02, $5C, $2F, $02 ; inline Z80: continued
+    DB      $5C, $CF, $02, $9C, $6F, $02, $9E, $83 ; inline Z80: continued
+    DB      $1A, $9E, $A2, $1C, $9F, $A3, $1A, $9F ; inline Z80: continued
+    DB      $C4, $18, $A5, $05, $60, $6C, $60, $73 ; inline Z80: continued
+    DB      $A4, $19, $50, $71, $50, $90, $31, $E0 ; inline Z80: continued
+    DB      $04, $4C, $03, $07, $51, $03, $08, $0F ; inline Z80: continued
+    DB      $09, $42, $27, $B1, $44, $20, $04, $42 ; inline Z80: continued
+    DB      $60, $1C, $83, $E0, $20, $01, $98, $4F ; inline Z80: continued
+    DB      $06, $82, $43, $35, $42, $CD, $2A, $82 ; inline Z80: continued
+    DB      $2A, $26, $42, $AA, $B1, $82, $51, $51 ; inline Z80: continued
+    DB      $82, $71, $24, $42, $5F, $1D, $42, $39 ; inline Z80: continued
+    DB      $71, $9E, $61, $02, $9F, $81, $02, $9F ; inline Z80: continued
+    DB      $A1, $02, $9F, $C1, $02, $9E, $4B, $02 ; inline Z80: continued
+    DB      $9F, $6B, $02, $9F, $8B, $02, $9F, $AB ; inline Z80: continued
+    DB      $02, $9F, $CB, $02, $9F, $D3, $0C, $9E ; inline Z80: continued
+    DB      $B3, $0C, $69, $D4, $6A, $D1, $5C, $E7 ; inline Z80: continued
+    DB      $02, $22, $A1, $62, $DB, $60, $4B, $60 ; inline Z80: continued
+    DB      $4E, $59, $3A, $0A, $59, $3D, $09, $0A ; inline Z80: continued
+    DB      $A4, $0D, $31, $71, $71, $70, $30, $95 ; inline Z80: continued
+    DB      $90, $30, $E0, $08, $0F, $09, $42, $20 ; inline Z80: continued
+    DB      $11, $43, $3F, $02, $0F, $83, $E0, $20 ; inline Z80: continued
+    DB      $01, $83, $61, $1E, $01, $43, $21, $1E ; inline Z80: continued
+    DB      $01, $42, $C1, $91, $42, $D2, $D1, $85 ; inline Z80: continued
+    DB      $A1, $02, $86, $8C, $03, $85, $91, $03 ; inline Z80: continued
+    DB      $86, $BD, $02, $9F, $C3, $09, $9F, $D4 ; inline Z80: continued
+    DB      $09, $9E, $A2, $0B, $9E, $B3, $0B, $58 ; inline Z80: continued
+    DB      $25, $05, $58, $39, $05, $98, $6F, $05 ; inline Z80: continued
+    DB      $59, $6E, $07, $70, $66, $90, $70, $60 ; inline Z80: continued
+    DB      $3E, $03, $67, $90, $A7, $4B, $90, $30 ; inline Z80: continued
+    DB      $A2, $03, $80, $20, $14, $00, $AD, $64 ; inline Z80: continued
+    DB      $58, $2F, $0F, $22, $AD, $22, $AF, $22 ; inline Z80: continued
+    DB      $B1, $31, $80, $3E, $0B, $08, $0F, $09 ; inline Z80: continued
+    DB      $58, $2F, $0F, $02, $AA, $15, $02, $B5 ; inline Z80: continued
+    DB      $15, $9F, $A0, $20, $9F, $C0, $20, $9E ; inline Z80: continued
+    DB      $80, $20, $42, $2F, $21, $03, $A0, $01 ; inline Z80: continued
+    DB      $12, $83, $E0, $20, $01, $82, $61, $24 ; inline Z80: continued
+    DB      $85, $A3, $02, $82, $85, $13, $82, $88 ; inline Z80: continued
+    DB      $13, $82, $8B, $13, $86, $AC, $02, $82 ; inline Z80: continued
+    DB      $6E, $44, $82, $D2, $31, $82, $75, $14 ; inline Z80: continued
+    DB      $82, $78, $24, $82, $BA, $11, $82, $DA ; inline Z80: continued
+    DB      $31, $82, $7D, $24, $42, $3F, $1E, $42 ; inline Z80: continued
+    DB      $21, $31, $42, $44, $11, $82, $41, $11 ; inline Z80: continued
+    DB      $82, $3B, $21, $42, $BD, $11, $42, $84 ; inline Z80: continued
+    DB      $11, $42, $C5, $21, $82, $02, $21, $42 ; inline Z80: continued
+    DB      $89, $21, $42, $CB, $11, $82, $2A, $11 ; inline Z80: continued
+    DB      $42, $EE, $11, $42, $72, $21, $42, $D4 ; inline Z80: continued
+    DB      $21, $42, $56, $21, $42, $99, $11, $82 ; inline Z80: continued
+    DB      $19, $11, $42, $FB, $21, $42, $3C, $31 ; inline Z80: continued
+    DB      $98, $6F, $05, $9F, $A4, $01, $9F, $AC ; inline Z80: continued
+    DB      $01, $23, $A2, $D1, $0C, $A2, $02, $3E ; inline Z80: continued
+    DB      $13, $0B, $B9, $21, $BB, $31, $70, $3E ; inline Z80: continued
+    DB      $0B, $0B, $A8, $0B, $AF, $0B, $B6, $20 ; inline Z80: continued
+    DB      $B1, $20, $AD, $32, $20, $32, $30, $3F ; inline Z80: continued
+    DB      $16, $62, $C3, $60, $4F, $60, $51, $69 ; inline Z80: continued
+    DB      $CB, $5C, $27, $07, $30, $65, $31, $61 ; inline Z80: continued
+    DB      $90, $71, $10, $30, $10, $3E, $0B, $58 ; inline Z80: continued
+    DB      $2F, $0F, $02, $8A, $15, $02, $95, $15 ; inline Z80: continued
+    DB      $23, $AF, $11, $00, $AA, $14, $11, $0C ; inline Z80: continued
+    DB      $AF, $02, $3E, $1B, $08, $0F, $09, $20 ; inline Z80: continued
+    DB      $A2, $20, $A5, $22, $BB, $22, $BD, $02 ; inline Z80: continued
+    DB      $BF, $14, $3E, $0E, $08, $0F, $09, $30 ; inline Z80: continued
+    DB      $90, $31, $52, $08, $0F, $09, $4E, $EB ; inline Z80: continued
+    DB      $0A, $43, $20, $20, $01, $42, $40, $1A ; inline Z80: continued
+    DB      $82, $80, $33, $82, $A3, $22, $83, $E0 ; inline Z80: continued
+    DB      $20, $01, $83, $47, $12, $01, $82, $9D ; inline Z80: continued
+    DB      $33, $82, $BB, $22, $42, $5F, $1A, $42 ; inline Z80: continued
+    DB      $E9, $31, $42, $F4, $31, $A9, $6A, $A9 ; inline Z80: continued
+    DB      $75, $64, $6D, $64, $71, $9C, $41, $05 ; inline Z80: continued
+    DB      $9C, $5A, $05, $58, $29, $06, $58, $35 ; inline Z80: continued
+    DB      $06, $58, $EF, $03, $98, $EF, $01, $31 ; inline Z80: continued
+    DB      $50, $3E, $0F, $3E, $19, $20, $AE, $20 ; inline Z80: continued
+    DB      $B1, $30, $80, $03, $A0, $20, $13, $01 ; inline Z80: continued
+    DB      $A4, $18, $04, $41, $41, $1E, $04, $41 ; inline Z80: continued
+    DB      $E1, $1E, $04, $08, $0F, $09, $58, $26 ; inline Z80: continued
+    DB      $05, $58, $D5, $05, $98, $6F, $05, $60 ; inline Z80: continued
+    DB      $4C, $27, $EB, $67, $89, $A7, $33, $90 ; inline Z80: continued
+    DB      $0B, $AD, $0B, $B2, $3E, $17, $02, $9F ; inline Z80: continued
+    DB      $25, $32, $80, $32, $86, $32, $D6, $3E ; inline Z80: continued
+    DB      $17, $02, $A0, $14, $71, $80, $71, $86 ; inline Z80: continued
+    DB      $71, $12, $71, $D2, $3E, $13, $30, $20 ; inline Z80: continued
+    DB      $30, $C0, $3E, $0B, $32, $10, $32, $80 ; inline Z80: continued
+    DB      $3F, $10, $18, $0F, $09, $60, $84, $60 ; inline Z80: continued
+    DB      $46, $31, $70, $30, $72, $30, $88, $43 ; inline Z80: continued
+    DB      $20, $20, $0F, $02, $A0, $14, $08, $0F ; inline Z80: continued
+    DB      $09, $31, $50, $32, $D0, $3F, $2B, $08 ; inline Z80: continued
+    DB      $0F, $09, $31, $10, $27, $E5, $04, $4C ; inline Z80: continued
+    DB      $03, $07, $51, $03, $03, $94, $0C, $14 ; inline Z80: continued
+    DB      $42, $13, $15, $42, $2D, $61, $42, $AA ; inline Z80: continued
+    DB      $A1, $42, $D1, $3A, $82, $49, $61, $82 ; inline Z80: continued
+    DB      $6D, $45, $82, $E1, $C1, $02, $80, $C1 ; inline Z80: continued
+    DB      $42, $21, $61, $03, $A0, $01, $12, $08 ; inline Z80: continued
+    DB      $0F, $09, $98, $4F, $06, $59, $23, $0A ; inline Z80: continued
+    DB      $59, $25, $0B, $9E, $A1, $0C, $9F, $C1 ; inline Z80: continued
+    DB      $0C, $30, $10, $31, $65, $90, $31, $51 ; inline Z80: continued
+    DB      $3E, $22, $02, $A0, $84, $29, $AB, $29 ; inline Z80: continued
+    DB      $B4, $A9, $6C, $A9, $73, $65, $6D, $65 ; inline Z80: continued
+    DB      $71, $71, $53, $98, $EF, $01, $3E, $22 ; inline Z80: continued
+    DB      $2A, $AB, $2A, $B4, $AA, $6C, $AA, $73 ; inline Z80: continued
+    DB      $64, $6D, $64, $71, $98, $EF, $01, $31 ; inline Z80: continued
+    DB      $20, $31, $79, $3E, $0B, $02, $94, $C5 ; inline Z80: continued
+    DB      $22, $AD, $20, $B0, $71, $20, $3E, $0B ; inline Z80: continued
+    DB      $02, $A0, $14, $2A, $B9, $58, $2F, $0F ; inline Z80: continued
+    DB      $90, $30, $40, $43, $20, $20, $0F, $40 ; inline Z80: continued
+    DB      $4A, $B5, $08, $0F, $09, $70, $50, $58 ; inline Z80: continued
+    DB      $2A, $06, $58, $34, $06, $58, $EF, $09 ; inline Z80: continued
     DB      $3E, $22, $66, $6F, $31, $75, $71, $73 ; ">"fo1uqs"
-    DB      $90, $30, $49, $3F, $16, $03, $B2, $0E
-    DB      $12, $90, $30, $10, $3E, $10, $18, $0F
-    DB      $09, $60, $50, $31, $70, $31, $92, $31
-    DB      $18, $3E, $13, $30, $30, $3E, $0B, $58
-    DB      $2F, $10, $31, $80, $31, $70, $3E, $0B
-    DB      $08, $0F, $09, $00, $BF, $14, $02, $B8
-    DB      $14, $30, $40, $70, $80, $3E, $31, $70
-    DB      $40, $3E, $0B, $30, $40, $3E, $22, $A9
-    DB      $67, $A9, $77, $64, $6D, $64, $71, $31
-    DB      $49, $3E, $22, $29, $AB, $29, $B4, $25
-    DB      $AD, $25, $B1, $A5, $6D, $A5, $71, $65
-    DB      $6C, $65, $72, $31, $99, $31, $83, $31
-    DB      $85, $31, $C0, $3E, $22, $2A, $AB, $2A
-    DB      $B4, $AA, $67, $AA, $78, $64, $6C, $64
-    DB      $72, $71, $83, $31, $49, $3E, $32, $27
-    DB      $F6, $02, $0F, $29, $90, $30, $20, $3E
-    DB      $23, $90, $27, $E7, $0B, $A6, $0B, $A9
-    DB      $30, $90, $3E, $13, $02, $A0, $24, $23
-    DB      $A3, $21, $BB, $21, $A5, $31, $90, $32
-    DB      $90, $51, $23, $A3, $3E, $27, $00, $A0
-    DB      $14, $02, $BF, $14, $71, $30, $71, $12
-    DB      $71, $B2, $71, $36, $3E, $16, $62, $DB
+    DB      $90, $30, $49, $3F, $16, $03, $B2, $0E ; inline Z80: continued large game block
+    DB      $12, $90, $30, $10, $3E, $10, $18, $0F ; inline Z80: continued
+    DB      $09, $60, $50, $31, $70, $31, $92, $31 ; inline Z80: continued
+    DB      $18, $3E, $13, $30, $30, $3E, $0B, $58 ; inline Z80: continued
+    DB      $2F, $10, $31, $80, $31, $70, $3E, $0B ; inline Z80: continued
+    DB      $08, $0F, $09, $00, $BF, $14, $02, $B8 ; inline Z80: continued
+    DB      $14, $30, $40, $70, $80, $3E, $31, $70 ; inline Z80: continued
+    DB      $40, $3E, $0B, $30, $40, $3E, $22, $A9 ; inline Z80: continued
+    DB      $67, $A9, $77, $64, $6D, $64, $71, $31 ; inline Z80: continued
+    DB      $49, $3E, $22, $29, $AB, $29, $B4, $25 ; inline Z80: continued
+    DB      $AD, $25, $B1, $A5, $6D, $A5, $71, $65 ; inline Z80: continued
+    DB      $6C, $65, $72, $31, $99, $31, $83, $31 ; inline Z80: continued
+    DB      $85, $31, $C0, $3E, $22, $2A, $AB, $2A ; inline Z80: continued
+    DB      $B4, $AA, $67, $AA, $78, $64, $6C, $64 ; inline Z80: continued
+    DB      $72, $71, $83, $31, $49, $3E, $32, $27 ; inline Z80: continued
+    DB      $F6, $02, $0F, $29, $90, $30, $20, $3E ; inline Z80: continued
+    DB      $23, $90, $27, $E7, $0B, $A6, $0B, $A9 ; inline Z80: continued
+    DB      $30, $90, $3E, $13, $02, $A0, $24, $23 ; inline Z80: continued
+    DB      $A3, $21, $BB, $21, $A5, $31, $90, $32 ; inline Z80: continued
+    DB      $90, $51, $23, $A3, $3E, $27, $00, $A0 ; inline Z80: continued
+    DB      $14, $02, $BF, $14, $71, $30, $71, $12 ; inline Z80: continued
+    DB      $71, $B2, $71, $36, $3E, $16, $62, $DB ; inline Z80: continued
     DB      $60, $4A, $60, $4E, $71, $70, $31, $71 ; "`J`Nqp1q"
-    DB      $30, $85, $3E, $05, $80, $6C, $14, $82
-    DB      $53, $31, $8B, $73, $8B, $74, $8B, $75
-    DB      $65, $CE, $A0, $77, $31, $F2, $31, $10
-    DB      $30, $99, $90, $30, $D0, $3E, $17, $71
-    DB      $10, $90, $31, $32, $31, $D2, $71, $A6
-    DB      $3E, $0B, $08, $0F, $09, $0B, $A8, $0B
-    DB      $AC, $30, $20, $30, $30, $3E, $37, $72
-    DB      $20, $32, $30, $90, $02, $A0, $14, $3E
-    DB      $02, $18, $0F, $06, $66, $62, $30, $20
-    DB      $90, $30, $A0, $3E, $0B, $31, $50, $70
-    DB      $30, $02, $BE, $24, $20, $B2, $20, $B6
-    DB      $20, $BA, $10, $23, $AF, $00, $B2, $E4
-    DB      $02, $A0, $24, $20, $A4, $20, $A8, $20
-    DB      $AC, $50, $00, $A3, $A4, $11, $0C, $AF
-    DB      $02, $91, $00, $A0, $34, $3E, $13, $43
-    DB      $E2, $1D, $08, $5C, $23, $1A, $42, $2E
-    DB      $46, $08, $0F, $09, $5F, $D2, $02, $31
-    DB      $30, $31, $A0, $3E, $0B, $32, $30, $32
-    DB      $A0, $3E, $0B, $08, $0F, $09, $27, $EC
-    DB      $27, $F1, $3E, $22, $29, $AB, $29, $B4
-    DB      $66, $6C, $64, $72, $82, $EF, $21, $71
-    DB      $43, $3E, $22, $29, $AB, $29, $B4, $AA
-    DB      $67, $AA, $77, $64, $6C, $65, $72, $31
+    DB      $30, $85, $3E, $05, $80, $6C, $14, $82 ; inline Z80: continued large game block
+    DB      $53, $31, $8B, $73, $8B, $74, $8B, $75 ; inline Z80: continued
+    DB      $65, $CE, $A0, $77, $31, $F2, $31, $10 ; inline Z80: continued
+    DB      $30, $99, $90, $30, $D0, $3E, $17, $71 ; inline Z80: continued
+    DB      $10, $90, $31, $32, $31, $D2, $71, $A6 ; inline Z80: continued
+    DB      $3E, $0B, $08, $0F, $09, $0B, $A8, $0B ; inline Z80: continued
+    DB      $AC, $30, $20, $30, $30, $3E, $37, $72 ; inline Z80: continued
+    DB      $20, $32, $30, $90, $02, $A0, $14, $3E ; inline Z80: continued
+    DB      $02, $18, $0F, $06, $66, $62, $30, $20 ; inline Z80: continued
+    DB      $90, $30, $A0, $3E, $0B, $31, $50, $70 ; inline Z80: continued
+    DB      $30, $02, $BE, $24, $20, $B2, $20, $B6 ; inline Z80: continued
+    DB      $20, $BA, $10, $23, $AF, $00, $B2, $E4 ; inline Z80: continued
+    DB      $02, $A0, $24, $20, $A4, $20, $A8, $20 ; inline Z80: continued
+    DB      $AC, $50, $00, $A3, $A4, $11, $0C, $AF ; inline Z80: continued
+    DB      $02, $91, $00, $A0, $34, $3E, $13, $43 ; inline Z80: continued
+    DB      $E2, $1D, $08, $5C, $23, $1A, $42, $2E ; inline Z80: continued
+    DB      $46, $08, $0F, $09, $5F, $D2, $02, $31 ; inline Z80: continued
+    DB      $30, $31, $A0, $3E, $0B, $32, $30, $32 ; inline Z80: continued
+    DB      $A0, $3E, $0B, $08, $0F, $09, $27, $EC ; inline Z80: continued
+    DB      $27, $F1, $3E, $22, $29, $AB, $29, $B4 ; inline Z80: continued
+    DB      $66, $6C, $64, $72, $82, $EF, $21, $71 ; inline Z80: continued
+    DB      $43, $3E, $22, $29, $AB, $29, $B4, $AA ; inline Z80: continued
+    DB      $67, $AA, $77, $64, $6C, $65, $72, $31 ; inline Z80: continued
     DB      $20, $71, $43, $3E, $45, $30, $40, $30 ; " qC>E0@0"
-    DB      $20, $3E, $32, $70, $40, $90, $0B, $A9
-    DB      $3E, $0F, $3E, $0B, $02, $A0, $24, $20
-    DB      $A3, $20, $A5, $20, $A7, $31, $20, $90
-    DB      $0B, $A7, $0B, $A9, $0B, $AB, $3E, $0B
-    DB      $30, $70, $27, $F5, $3E, $2A, $08, $0F
-    DB      $09, $00, $B1, $14, $A0, $52, $A2, $55
-    DB      $82, $CF, $22, $30, $98, $90, $30, $62
-    DB      $3E, $2B, $31, $20, $31, $30, $3E, $13
-    DB      $27, $F8, $90, $0B, $AF, $27, $E5, $3E
-    DB      $0B, $08, $0F, $09, $71, $30, $0B, $A4
-    DB      $0B, $A5, $0B, $A6, $0B, $A7, $0B, $AB
-    DB      $0B, $AC, $0B, $AD, $0B, $AE, $0B, $AF
-    DB      $0B, $B0, $0B, $B1, $0B, $B2, $0B, $B3
-    DB      $0B, $B7, $0B, $B8, $0B, $B9, $0B, $BA
-    DB      $43, $20, $20, $0F, $90, $31, $50, $3E
-    DB      $13, $08, $0F, $09, $2B, $AC, $2B, $B4
-    DB      $3F, $5B, $66, $F5, $2B, $BB, $6B, $5B
-    DB      $50, $31, $10, $31, $36, $90, $30, $A2
-    DB      $07, $A9, $07, $04, $B0, $06, $42, $20
-    DB      $41, $42, $C0, $71, $82, $60, $91, $42
-    DB      $3B, $51, $42, $D8, $81, $82, $76, $A1
-    DB      $9E, $80, $09, $9E, $A9, $01, $9E, $CA
-    DB      $01, $9E, $EB, $01, $9E, $96, $0A, $9E
-    DB      $B5, $01, $9E, $D4, $01, $9E, $F3, $01
-    DB      $9F, $A0, $09, $9F, $C0, $0A, $9F, $E0
-    DB      $0B, $9F, $B6, $0B, $9F, $D5, $0C, $9F
-    DB      $F4, $0D, $60, $8F, $60, $CF, $A0, $0F
-    DB      $A0, $4F, $A0, $8F, $60, $CB, $60, $D3
-    DB      $A0, $0C, $A0, $12, $A0, $4D, $A0, $51
-    DB      $66, $E9, $2B, $A3, $2A, $B6, $29, $BA
-    DB      $6B, $43, $4B, $F1, $42, $E0, $34, $43
-    DB      $20, $20, $01, $43, $C0, $20, $01, $83
-    DB      $60, $20, $01, $83, $E0, $20, $01, $47
-    DB      $5B, $02, $42, $5D, $34, $47, $FA, $02
-    DB      $42, $FC, $44, $87, $98, $03, $82, $9B
-    DB      $54, $9F, $C0, $1B, $9E, $A0, $1A, $58
-    DB      $26, $05, $58, $D6, $05, $9C, $65, $0C
-    DB      $50, $30, $50, $3E, $13, $27, $F0, $90
-    DB      $70, $30, $3E, $13, $27, $EF, $20, $AE
-    DB      $20, $B0, $90, $30, $A0, $3E, $57, $90
-    DB      $30, $50, $3E, $0A, $2B, $AB, $2B, $B3
-    DB      $3E, $13, $31, $40, $3E, $13, $08, $0F
-    DB      $09, $03, $B3, $0D, $13, $31, $60, $31
-    DB      $40, $90, $0B, $AA, $3E, $13, $08, $0F
-    DB      $09, $03, $A0, $0D, $13, $30, $80, $30
-    DB      $A0, $90, $0B, $B4, $3E, $0B, $02, $BF
-    DB      $14, $22, $B1, $22, $B3, $22, $B5, $20
-    DB      $B7, $20, $B9, $20, $BB, $01, $00, $01
-    DB      $08, $01, $00, $02, $88, $89, $10, $11
-    DB      $02, $00, $00, $00, $00, $01, $90, $C4
-    DB      $01, $95, $01, $E0, $01, $06, $05, $04
-    DB      $01, $BA, $B9, $B8, $01, $E8, $02, $08
-    DB      $08, $FF, $D2, $D3, $D4, $D5, $D2, $D3
-    DB      $D4, $D5, $D2, $D3, $D4, $D5, $D2, $D3
-    DB      $D4, $D5, $D2, $D3, $D4, $D5, $D2, $D3
-    DB      $D4, $D5, $D2, $D3, $D4, $D5, $38, $01
-    DB      $38, $02, $98, $D8, $99, $D9, $02, $A8
-    DB      $AE, $A9, $AF, $02, $96, $97, $9A, $9B
-    DB      $02, $D0, $D1, $62, $63, $02, $78, $79
-    DB      $7A, $7B, $02, $68, $69, $6A, $6B, $02
-    DB      $70, $71, $72, $73, $02, $B0, $B7, $B1
-    DB      $B2, $B3, $B3, $02, $BB, $9C, $BC, $BD
-    DB      $BE, $BE, $02, $C0, $C7, $C1, $C2, $C3
-    DB      $C3, $02, $A0, $A1, $A2, $A3, $02, $A5
-    DB      $A4, $A7, $A6, $0C, $2C, $0F, $0C, $0F
-    DB      $0C, $02, $60, $AE, $61, $AF, $02, $74
-    DB      $75, $6C, $6D               ; "ulm"
+    DB      $20, $3E, $32, $70, $40, $90, $0B, $A9 ; inline Z80: continued large game block
+    DB      $3E, $0F, $3E, $0B, $02, $A0, $24, $20 ; inline Z80: continued
+    DB      $A3, $20, $A5, $20, $A7, $31, $20, $90 ; inline Z80: continued
+    DB      $0B, $A7, $0B, $A9, $0B, $AB, $3E, $0B ; inline Z80: continued
+    DB      $30, $70, $27, $F5, $3E, $2A, $08, $0F ; inline Z80: continued
+    DB      $09, $00, $B1, $14, $A0, $52, $A2, $55 ; inline Z80: continued
+    DB      $82, $CF, $22, $30, $98, $90, $30, $62 ; inline Z80: continued
+    DB      $3E, $2B, $31, $20, $31, $30, $3E, $13 ; inline Z80: continued
+    DB      $27, $F8, $90, $0B, $AF, $27, $E5, $3E ; inline Z80: continued
+    DB      $0B, $08, $0F, $09, $71, $30, $0B, $A4 ; inline Z80: continued
+    DB      $0B, $A5, $0B, $A6, $0B, $A7, $0B, $AB ; inline Z80: continued
+    DB      $0B, $AC, $0B, $AD, $0B, $AE, $0B, $AF ; inline Z80: continued
+    DB      $0B, $B0, $0B, $B1, $0B, $B2, $0B, $B3 ; inline Z80: continued
+    DB      $0B, $B7, $0B, $B8, $0B, $B9, $0B, $BA ; inline Z80: continued
+    DB      $43, $20, $20, $0F, $90, $31, $50, $3E ; inline Z80: continued
+    DB      $13, $08, $0F, $09, $2B, $AC, $2B, $B4 ; inline Z80: continued
+    DB      $3F, $5B, $66, $F5, $2B, $BB, $6B, $5B ; inline Z80: continued
+    DB      $50, $31, $10, $31, $36, $90, $30, $A2 ; inline Z80: continued
+    DB      $07, $A9, $07, $04, $B0, $06, $42, $20 ; inline Z80: continued
+    DB      $41, $42, $C0, $71, $82, $60, $91, $42 ; inline Z80: continued
+    DB      $3B, $51, $42, $D8, $81, $82, $76, $A1 ; inline Z80: continued
+    DB      $9E, $80, $09, $9E, $A9, $01, $9E, $CA ; inline Z80: continued
+    DB      $01, $9E, $EB, $01, $9E, $96, $0A, $9E ; inline Z80: continued
+    DB      $B5, $01, $9E, $D4, $01, $9E, $F3, $01 ; inline Z80: continued
+    DB      $9F, $A0, $09, $9F, $C0, $0A, $9F, $E0 ; inline Z80: continued
+    DB      $0B, $9F, $B6, $0B, $9F, $D5, $0C, $9F ; inline Z80: continued
+    DB      $F4, $0D, $60, $8F, $60, $CF, $A0, $0F ; inline Z80: continued
+    DB      $A0, $4F, $A0, $8F, $60, $CB, $60, $D3 ; inline Z80: continued
+    DB      $A0, $0C, $A0, $12, $A0, $4D, $A0, $51 ; inline Z80: continued
+    DB      $66, $E9, $2B, $A3, $2A, $B6, $29, $BA ; inline Z80: continued
+    DB      $6B, $43, $4B, $F1, $42, $E0, $34, $43 ; inline Z80: continued
+    DB      $20, $20, $01, $43, $C0, $20, $01, $83 ; inline Z80: continued
+    DB      $60, $20, $01, $83, $E0, $20, $01, $47 ; inline Z80: continued
+    DB      $5B, $02, $42, $5D, $34, $47, $FA, $02 ; inline Z80: continued
+    DB      $42, $FC, $44, $87, $98, $03, $82, $9B ; inline Z80: continued
+    DB      $54, $9F, $C0, $1B, $9E, $A0, $1A, $58 ; inline Z80: continued
+    DB      $26, $05, $58, $D6, $05, $9C, $65, $0C ; inline Z80: continued
+    DB      $50, $30, $50, $3E, $13, $27, $F0, $90 ; inline Z80: continued
+    DB      $70, $30, $3E, $13, $27, $EF, $20, $AE ; inline Z80: continued
+    DB      $20, $B0, $90, $30, $A0, $3E, $57, $90 ; inline Z80: continued
+    DB      $30, $50, $3E, $0A, $2B, $AB, $2B, $B3 ; inline Z80: continued
+    DB      $3E, $13, $31, $40, $3E, $13, $08, $0F ; inline Z80: continued
+    DB      $09, $03, $B3, $0D, $13, $31, $60, $31 ; inline Z80: continued
+    DB      $40, $90, $0B, $AA, $3E, $13, $08, $0F ; inline Z80: continued
+    DB      $09, $03, $A0, $0D, $13, $30, $80, $30 ; sound channel init data: flags+freq table (start)
+    DB      $A0, $90, $0B, $B4, $3E, $0B, $02, $BF ; sound channel init data: continued
+    DB      $14, $22, $B1, $22, $B3, $22, $B5, $20 ; sound channel init data: continued
+    DB      $B7, $20, $B9, $20, $BB, $01, $00, $01 ; sound channel init data: continued
+    DB      $08, $01, $00, $02, $88, $89, $10, $11 ; sound channel init data: note repeat sequence
+    DB      $02, $00, $00, $00, $00, $01, $90, $C4 ; sound channel init data: note repeat continued
+    DB      $01, $95, $01, $E0, $01, $06, $05, $04 ; sound channel init data: note repeat continued
+    DB      $01, $BA, $B9, $B8, $01, $E8, $02, $08 ; sound channel init data: note repeat continued
+    DB      $08, $FF, $D2, $D3, $D4, $D5, $D2, $D3 ; sound channel init data: continued
+    DB      $D4, $D5, $D2, $D3, $D4, $D5, $D2, $D3 ; sound channel init data: continued
+    DB      $D4, $D5, $D2, $D3, $D4, $D5, $D2, $D3 ; sound channel init data: continued
+    DB      $D4, $D5, $D2, $D3, $D4, $D5, $38, $01 ; sound channel init data: continued
+    DB      $38, $02, $98, $D8, $99, $D9, $02, $A8 ; sound channel init data: continued
+    DB      $AE, $A9, $AF, $02, $96, $97, $9A, $9B ; sound channel init data: continued
+    DB      $02, $D0, $D1, $62, $63, $02, $78, $79 ; sound channel init data: continued
+    DB      $7A, $7B, $02, $68, $69, $6A, $6B, $02 ; sound channel init data: continued
+    DB      $70, $71, $72, $73, $02, $B0, $B7, $B1 ; sound channel init data: continued
+    DB      $B2, $B3, $B3, $02, $BB, $9C, $BC, $BD ; sound channel init data: continued
+    DB      $BE, $BE, $02, $C0, $C7, $C1, $C2, $C3 ; sound channel init data: end + tile IDs "ulm"
+    DB      $C3, $02, $A0, $A1, $A2, $A3, $02, $A5 ; sound channel init data: continued bytes
+    DB      $A4, $A7, $A6, $0C, $2C, $0F, $0C, $0F ; sound channel init data: continued
+    DB      $0C, $02, $60, $AE, $61, $AF, $02, $74 ; sound channel init data: final bytes before SOUND_WRITE_A067
+    DB      $75, $6C, $6D                   ; "ulm"
 
 SOUND_WRITE_A067:
     CALL    SUB_AE77                        ; CALL SUB_AE77: blank VDP display (INC $70B3)
@@ -1714,27 +1714,27 @@ LOC_A0B6:
     CALL    SUB_AB29                        ; CALL SUB_AB29: send pending note byte to SN76489A
 
 LOC_A0CB:
-    POP     AF
-    LD      ($7195), A                  ; RAM $7195
-    LD      B, $04
-    LD      HL, $7193                   ; RAM $7193
+    POP     AF                              ; POP AF: restore saved A (tile index)
+    LD      ($7195), A                      ; RAM $7195
+    LD      B, $04                          ; LD B,$04: loop counter = 4 (4 entity bytes)
+    LD      HL, $7193                       ; RAM $7193
 
 LOC_A0D4:
-    POP     AF
-    LD      (HL), A
-    DEC     HL
-    DJNZ    LOC_A0D4
+    POP     AF                              ; POP AF: pop next saved entity byte
+    LD      (HL), A                         ; LD (HL),A: store byte to entity buffer
+    DEC     HL                              ; DEC HL: step back in buffer
+    DJNZ    LOC_A0D4                        ; DJNZ LOC_A0D4: loop 4 times
 
 LOC_A0D9:
-    LD      A, $02
+    LD      A, $02                          ; LD A,$02: A = $02 (default advance step)
 
 LOC_A0DB:
-    LD      C, A
-    LD      B, $00
-    LD      HL, ($7190)                 ; RAM $7190
-    ADD     HL, BC
-    LD      ($7190), HL                 ; RAM $7190
-    JR      LOC_A0A4
+    LD      C, A                            ; LD C,A: C = A (byte count for HL advance)
+    LD      B, $00                          ; LD B,$00: B = $00 (zero extend for ADD HL,BC)
+    LD      HL, ($7190)                     ; RAM $7190
+    ADD     HL, BC                          ; ADD HL,BC: advance entity pointer by C bytes
+    LD      ($7190), HL                     ; RAM $7190
+    JR      LOC_A0A4                        ; JR LOC_A0A4: loop back to main dispatch
 
 LOC_A0E7:
     LD      A, ($705F)                      ; A = ($705F) game mode flags
@@ -1748,319 +1748,319 @@ LOC_A0F5:
     CALL    SOUND_WRITE_A548                ; CALL SOUND_WRITE_A548: item sprite update (end-of-sequence)
 
 LOC_A0F8:
-    LD      A, ($707A)                  ; RAM $707A
-    SLA     A
-    SLA     A
-    LD      C, A
-    LD      A, $80
-    SUB     C
-    LD      H, $00
-    LD      L, A
-    LD      B, $00
-    DB      $EB
-    LD      HL, $1B08
-    ADD     HL, BC
-    XOR     A
-    CALL    FILL_VRAM
-    CALL    SUB_AE83
-    RET     
+    LD      A, ($707A)                      ; RAM $707A
+    SLA     A                               ; SLA A: A = scroll offset * 2
+    SLA     A                               ; SLA A: A = scroll offset * 4
+    LD      C, A                            ; LD C,A: C = offset*4
+    LD      A, $80                          ; LD A,$80: A = $80 (half VRAM row width)
+    SUB     C                               ; SUB C: A = $80 - offset*4 (VRAM X position)
+    LD      H, $00                          ; LD H,$00: H = $00 (zero high byte)
+    LD      L, A                            ; LD L,A: HL = VRAM column offset
+    LD      B, $00                          ; LD B,$00: B = $00 (zero for ADD HL,BC)
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    LD      HL, $1B08                       ; LD HL,$1B08: HL = $1B08 (VRAM scroll area base)
+    ADD     HL, BC                          ; ADD HL,BC: HL = scroll area base + DE offset
+    XOR     A                               ; XOR A: A = $00 (fill byte = blank)
+    CALL    FILL_VRAM                       ; CALL FILL_VRAM: blank scroll column
+    CALL    SUB_AE83                        ; CALL SUB_AE83: VRAM-blank restore (exit lock)
+    RET                                     ; RET: return from scroll blank routine
 
 LOC_A115:
-    LD      HL, ($7190)                 ; RAM $7190
-    LD      A, (HL)
-    LD      ($7196), A                  ; RAM $7196
-    AND     $3E
-    CP      $3E
-    JR      Z, LOC_A191
-    LD      BC, $0003
-    INC     HL
-    LD      DE, $7197                   ; RAM $7197
-    LDIR    
-    CALL    SUB_A4F8
-    LD      A, ($7196)                  ; RAM $7196
-    AND     $3F
-    LD      B, $02
-    CP      $10
-    JP      Z, LOC_A1BE
-    CP      $11
-    JP      Z, LOC_A1BC
-    CP      $0B
-    JP      Z, LOC_A2E3
-    CP      $20
-    JR      C, LOC_A175
-    CP      $29
-    JR      C, LOC_A15D
-    CP      $30
-    JR      C, LOC_A169
-    LD      A, ($7194)                  ; RAM $7194
-    CP      $00
-    JR      NZ, LOC_A0D9
-    CALL    SOUND_WRITE_A405
+    LD      HL, ($7190)                     ; RAM $7190
+    LD      A, (HL)                         ; LD A,(HL): A = raw tile byte from queue
+    LD      ($7196), A                      ; RAM $7196
+    AND     $3E                             ; AND $3E: mask to tile-type bits 1-5
+    CP      $3E                             ; CP $3E: check for queue-end sentinel ($3E)
+    JR      Z, LOC_A191                     ; JR Z,LOC_A191: end of queue -> wrap pointer
+    LD      BC, $0003                       ; LD BC,$0003: BC = 3 (copy 3 more tile bytes)
+    INC     HL                              ; INC HL: point past first queue byte
+    LD      DE, $7197                       ; RAM $7197
+    LDIR                                    ; LDIR: copy 3 bytes to $7197 tile buffer
+    CALL    SUB_A4F8                        ; CALL SUB_A4F8: look up tile action code
+    LD      A, ($7196)                      ; RAM $7196
+    AND     $3F                             ; AND $3F: mask off flag bits -> tile index
+    LD      B, $02                          ; LD B,$02: B = 2 (default tile-type param)
+    CP      $10                             ; CP $10: tile = $10 (door tile)?
+    JP      Z, LOC_A1BE                     ; JP Z,LOC_A1BE: yes -> door handler
+    CP      $11                             ; CP $11: tile = $11 (key tile)?
+    JP      Z, LOC_A1BC                     ; JP Z,LOC_A1BC: yes -> key handler
+    CP      $0B                             ; CP $0B: tile = $0B (rope tile)?
+    JP      Z, LOC_A2E3                     ; JP Z,LOC_A2E3: yes -> rope handler
+    CP      $20                             ; CP $20: tile < $20 (room object)?
+    JR      C, LOC_A175                     ; JR C,LOC_A175: yes -> place object
+    CP      $29                             ; CP $29: tile < $29 (ladder type A)?
+    JR      C, LOC_A15D                     ; JR C,LOC_A15D: yes -> ladder A handler
+    CP      $30                             ; CP $30: tile < $30 (ladder type B)?
+    JR      C, LOC_A169                     ; JR C,LOC_A169: yes -> ladder B handler
+    LD      A, ($7194)                      ; RAM $7194
+    CP      $00                             ; CP $00: pending action count = 0?
+    JR      NZ, LOC_A0D9                    ; JR NZ,LOC_A0D9: pending -> skip sound
+    CALL    SOUND_WRITE_A405                ; CALL SOUND_WRITE_A405: play tile-exit sound
 
 LOC_A15A:
-    JP      LOC_A0D9
+    JP      LOC_A0D9                        ; JP LOC_A0D9: advance entity queue pointer
 
 LOC_A15D:
-    LD      A, ($7194)                  ; RAM $7194
-    CP      $00
-    JR      NZ, LOC_A15A
-    CALL    SUB_A36A
-    JR      LOC_A15A
+    LD      A, ($7194)                      ; RAM $7194
+    CP      $00                             ; CP $00: pending action count = 0?
+    JR      NZ, LOC_A15A                    ; JR NZ,LOC_A15A: pending -> skip ladder A
+    CALL    SUB_A36A                        ; CALL SUB_A36A: process ladder A action
+    JR      LOC_A15A                        ; JR LOC_A15A: advance queue pointer
 
 LOC_A169:
-    LD      A, ($7194)                  ; RAM $7194
-    CP      $00
-    JR      NZ, LOC_A15A
-    CALL    SUB_A3AB
-    JR      LOC_A15A
+    LD      A, ($7194)                      ; RAM $7194
+    CP      $00                             ; CP $00: pending action count = 0?
+    JR      NZ, LOC_A15A                    ; JR NZ,LOC_A15A: pending -> skip ladder B
+    CALL    SUB_A3AB                        ; CALL SUB_A3AB: process ladder B action
+    JR      LOC_A15A                        ; JR LOC_A15A: advance queue pointer
 
 LOC_A175:
-    LD      HL, $A20A
-    LD      A, ($7196)                  ; RAM $7196
-    SRL     A
-    SRL     A
-    AND     $07
-    SLA     A
-    LD      B, $00
-    LD      C, A
-    ADD     HL, BC
-    LD      E, (HL)
-    INC     HL
-    LD      D, (HL)
-    DB      $EB
-    CALL    SUB_AE3A
-    JP      LOC_A0DB
+    LD      HL, $A20A                       ; LD HL,$A20A: HL = object dispatch table
+    LD      A, ($7196)                      ; RAM $7196
+    SRL     A                               ; SRL A: shift tile index right
+    SRL     A                               ; SRL A: shift right again
+    AND     $07                             ; AND $07: keep bits 2-4 (object index 0-7)
+    SLA     A                               ; SLA A: *2 for word-table index
+    LD      B, $00                          ; LD B,$00: B = $00 (zero extend)
+    LD      C, A                            ; LD C,A: C = object index
+    ADD     HL, BC                          ; ADD HL,BC: HL = table entry address
+    LD      E, (HL)                         ; LD E,(HL): E = lo byte of object handler addr
+    INC     HL                              ; INC HL: advance to hi byte
+    LD      D, (HL)                         ; LD D,(HL): D = hi byte of handler address
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    CALL    SUB_AE3A                        ; CALL SUB_AE3A: call object handler via DE
+    JP      LOC_A0DB                        ; JP LOC_A0DB: advance entity queue pointer
 
 LOC_A191:
-    LD      B, $04
-    LD      HL, $7190                   ; RAM $7190
+    LD      B, $04                          ; LD B,$04: B = 4 (push 4 queue entries)
+    LD      HL, $7190                       ; RAM $7190
 
 LOC_A196:
-    LD      A, (HL)
-    INC     HL
-    PUSH    AF
-    DJNZ    LOC_A196
-    LD      A, ($7195)                  ; RAM $7195
-    PUSH    AF
-    LD      HL, ($7190)                 ; RAM $7190
-    LD      B, $00
-    LD      C, A
-    ADD     HL, BC
-    INC     HL
-    LD      A, (HL)
-    PUSH    AF
-    LD      A, ($7196)                  ; RAM $7196
-    AND     $01
-    LD      ($7195), A                  ; RAM $7195
-    LD      HL, $7194                   ; RAM $7194
-    INC     (HL)
-    POP     AF
-    CALL    SUB_A4CE
-    JP      LOC_A0A4
+    LD      A, (HL)                         ; LD A,(HL): A = queue byte
+    INC     HL                              ; INC HL: advance queue pointer
+    PUSH    AF                              ; PUSH AF: save queue byte on stack
+    DJNZ    LOC_A196                        ; DJNZ LOC_A196: loop to push 4 bytes
+    LD      A, ($7195)                      ; RAM $7195
+    PUSH    AF                              ; PUSH AF: push $7195 tile-direction byte
+    LD      HL, ($7190)                     ; RAM $7190
+    LD      B, $00                          ; LD B,$00: B = $00 (zero extend offset)
+    LD      C, A                            ; LD C,A: C = $7195 offset
+    ADD     HL, BC                          ; ADD HL,BC: HL = queue base + offset
+    INC     HL                              ; INC HL: skip to data byte
+    LD      A, (HL)                         ; LD A,(HL): A = new queue data byte
+    PUSH    AF                              ; PUSH AF: save new data byte
+    LD      A, ($7196)                      ; RAM $7196
+    AND     $01                             ; AND $01: keep bit 0 -> new direction flag
+    LD      ($7195), A                      ; RAM $7195
+    LD      HL, $7194                       ; RAM $7194
+    INC     (HL)                            ; INC (HL): increment pending action count
+    POP     AF                              ; POP AF: restore data byte
+    CALL    SUB_A4CE                        ; CALL SUB_A4CE: set up speed record
+    JP      LOC_A0A4                        ; JP LOC_A0A4: return to main NMI loop
 
 LOC_A1BC:
-    LD      B, $06
+    LD      B, $06                          ; LD B,$06: B = 6 (key tile param)
 
 LOC_A1BE:
-    LD      A, ($7196)                  ; RAM $7196
-    AND     $C0
-    SRL     A
-    SRL     A
-    SRL     A
-    SRL     A
-    SRL     A
-    SRL     A
-    ADD     A, B
-    LD      B, A
-    LD      A, ($71A6)                  ; RAM $71A6
-    CP      B
-    JR      C, LOC_A1DC
-    LD      A, $01
-    JP      LOC_A0DB
+    LD      A, ($7196)                      ; RAM $7196
+    AND     $C0                             ; AND $C0: keep bits 6-7 (target level)
+    SRL     A                               ; SRL A: shift right
+    SRL     A                               ; SRL A: shift right
+    SRL     A                               ; SRL A: shift right
+    SRL     A                               ; SRL A: shift right
+    SRL     A                               ; SRL A: shift right
+    SRL     A                               ; SRL A: A = target level 0-3
+    ADD     A, B                            ; ADD A,B: A = target level + param
+    LD      B, A                            ; LD B,A: B = final level target
+    LD      A, ($71A6)                      ; RAM $71A6
+    CP      B                               ; CP B: current level >= target level?
+    JR      C, LOC_A1DC                     ; JR C,LOC_A1DC: level < target -> dispatch
+    LD      A, $01                          ; LD A,$01: A = 1 (step size = 1)
+    JP      LOC_A0DB                        ; JP LOC_A0DB: advance queue 1 byte
 
 LOC_A1DC:
-    JP      LOC_A0B6
+    JP      LOC_A0B6                        ; JP LOC_A0B6: dispatch to LOC_A0B6
 
 SUB_A1DF:
-    LD      B, $03
-    LD      DE, $0003
-    LD      HL, $18A0
-    LD      DE, $0260
-    XOR     A
-    CALL    FILL_VRAM
-    LD      A, ($705F)                  ; RAM $705F
-    BIT     2, A
-    JR      Z, LOC_A1FB
-    LD      A, ($71A8)                  ; RAM $71A8
-    CP      $0A
-    RET     NZ
+    LD      B, $03                          ; LD B,$03: B = 3 (rope tile count)
+    LD      DE, $0003                       ; LD DE,$0003: DE = 3 (stride between entries)
+    LD      HL, $18A0                       ; LD HL,$18A0: HL = $18A0 (VRAM rope row)
+    LD      DE, $0260                       ; LD DE,$0260: DE = $0260 (VRAM block length)
+    XOR     A                               ; XOR A: A = $00 (fill value blank)
+    CALL    FILL_VRAM                       ; CALL FILL_VRAM: clear rope VRAM area
+    LD      A, ($705F)                      ; RAM $705F
+    BIT     2, A                            ; BIT 2,A: check tile-data-ready flag
+    JR      Z, LOC_A1FB                     ; JR Z,LOC_A1FB: not ready -> skip detail
+    LD      A, ($71A8)                      ; RAM $71A8
+    CP      $0A                             ; CP $0A: animation frame = 10?
+    RET     NZ                              ; RET NZ: not frame 10 -> return early
 
 LOC_A1FB:
-    LD      HL, $1800
-    LD      DE, $00A0
-    LD      A, $08
-    CALL    FILL_VRAM
-    CALL    SUB_AA5D
-    RET     
-    DB      $1A, $A2, $7C, $A2, $F0, $A2, $18, $A3
-    DB      $1A, $A2, $7C, $A2, $0E, $A3, $40, $A3
-    DB      $CD, $E3, $A4, $3A, $9A, $71, $21, $D2
-    DB      $9F, $06, $00, $4F, $09, $7E, $32, $9B
-    DB      $71, $3A, $96, $71, $E6, $01, $FE, $00
-    DB      $28, $0D, $21, $98, $71, $56, $23, $5E
-    DB      $3E, $04, $32, $A0, $71, $18, $16, $3A
-    DB      $98, $71, $5F, $CB, $3F, $CB, $3F, $CB
-    DB      $3F, $CB, $3F, $57, $7B, $E6, $0F, $5F
-    DB      $3E, $03, $32, $A0, $71, $21, $9D, $71
-    DB      $72, $23, $73, $3A, $9E, $71, $47, $C5
-    DB      $3A, $9D, $71, $47, $0E, $01, $ED, $5B
-    DB      $B0, $71, $21, $9B, $71, $CD, $A7, $AE
-    DB      $CD, $09, $A5, $C1, $3A, $A0, $71, $10
-    DB      $E6, $C9, $CD, $E3, $A4, $3A, $9A, $71
-    DB      $21, $D4, $9F, $06, $00, $4F, $09, $7E
-    DB      $32, $9B, $71, $3A, $98, $71, $57, $5F
-    DB      $3A, $96, $71, $E6, $10, $FE, $00, $28
-    DB      $02, $CB, $23, $CD, $57, $A2, $CD, $E3
-    DB      $A4, $3A, $9A, $71, $21, $D2, $9F, $06
-    DB      $00, $4F, $09, $7E, $32, $9B, $71, $CD
-    DB      $D5, $A2, $21, $98, $71, $35, $28, $18
-    DB      $56, $3A, $96, $71, $E6, $10, $CB, $3F
-    DB      $CB, $3F, $CB, $3F, $CB, $3F, $3C, $5F
-    DB      $CD, $57, $A2, $CD, $D5, $A2, $18, $E2
-    DB      $3E, $03, $C9, $3A, $96, $71, $E6, $01
-    DB      $C8, $2A, $B0, $71, $23, $22, $B0, $71
-    DB      $C9
+    LD      HL, $1800                       ; LD HL,$1800: HL = $1800 (name table base)
+    LD      DE, $00A0                       ; LD DE,$00A0: DE = $00A0 (160 bytes)
+    LD      A, $08                          ; LD A,$08: A = $08 (fill tile = space)
+    CALL    FILL_VRAM                       ; CALL FILL_VRAM: clear top name table rows
+    CALL    SUB_AA5D                        ; CALL SUB_AA5D: redraw room header
+    RET                                     ; RET: return from SUB_A1DF
+    DB      $1A, $A2, $7C, $A2, $F0, $A2, $18, $A3 ; rope tile handler: jump table entries (lo/hi pairs)
+    DB      $1A, $A2, $7C, $A2, $0E, $A3, $40, $A3 ; rope tile handler: jump table entries continued
+    DB      $CD, $E3, $A4, $3A, $9A, $71, $21, $D2 ; rope tile handler: inline Z80 CALL $A4E3 / LD A ...
+    DB      $9F, $06, $00, $4F, $09, $7E, $32, $9B ; rope tile handler: inline Z80 LD HL,$9FD2 ...
+    DB      $71, $3A, $96, $71, $E6, $01, $FE, $00 ; rope tile handler: inline Z80 continued
+    DB      $28, $0D, $21, $98, $71, $56, $23, $5E ; rope tile handler: inline Z80 LD A,($7096) ...
+    DB      $3E, $04, $32, $A0, $71, $18, $16, $3A ; rope tile handler: inline Z80 LD D,(HL) / INC HL ...
+    DB      $98, $71, $5F, $CB, $3F, $CB, $3F, $CB ; rope tile handler: inline Z80 CALL $AEA7 (x2) ...
+    DB      $3F, $CB, $3F, $57, $7B, $E6, $0F, $5F ; rope tile handler: inline Z80 LD HL,($9B) ...
+    DB      $3E, $03, $32, $A0, $71, $21, $9D, $71 ; rope tile handler: inline Z80 CALL $AEA7 / CALL $A509
+    DB      $72, $23, $73, $3A, $9E, $71, $47, $C5 ; rope tile handler: inline Z80 LD A,$10 / DJNZ ...
+    DB      $3A, $9D, $71, $47, $0E, $01, $ED, $5B ; rope tile handler: inline Z80 CALL $A4E3 / LD A ...
+    DB      $B0, $71, $21, $9B, $71, $CD, $A7, $AE ; rope tile handler: inline Z80 LD HL,$9FD2 ...
+    DB      $CD, $09, $A5, $C1, $3A, $A0, $71, $10 ; rope tile handler: inline Z80 AND $10 / CP $00 ...
+    DB      $E6, $C9, $CD, $E3, $A4, $3A, $9A, $71 ; rope tile handler: inline Z80 CALL $A257 / CALL $A4E3
+    DB      $21, $D4, $9F, $06, $00, $4F, $09, $7E ; rope tile handler: inline Z80 CALL $A4E3 / LD A ...
+    DB      $32, $9B, $71, $3A, $98, $71, $57, $5F ; rope tile handler: inline Z80 CALL $A4E3 / LD A ...
+    DB      $3A, $96, $71, $E6, $10, $FE, $00, $28 ; rope tile handler: inline Z80 DEC (HL) / JR Z ...
+    DB      $02, $CB, $23, $CD, $57, $A2, $CD, $E3 ; rope tile handler: inline Z80 RLCA (x4) / INC A ...
+    DB      $A4, $3A, $9A, $71, $21, $D2, $9F, $06 ; rope tile handler: inline Z80 CALL $A257 / CALL $A5D5
+    DB      $00, $4F, $09, $7E, $32, $9B, $71, $CD ; rope tile handler: inline Z80 DJNZ ...
+    DB      $D5, $A2, $21, $98, $71, $35, $28, $18 ; rope tile handler: inline Z80 LD A,$03 / RET ...
+    DB      $56, $3A, $96, $71, $E6, $10, $CB, $3F ; rope tile handler: inline Z80 AND $01 / RET Z ...
+    DB      $CB, $3F, $CB, $3F, $CB, $3F, $3C, $5F ; rope tile handler: inline Z80 INC HL ($70B0) ...
+    DB      $CD, $57, $A2, $CD, $D5, $A2, $18, $E2 ; rope tile handler: tail RET $C9
+    DB      $3E, $03, $C9, $3A, $96, $71, $E6, $01 ; rope tile handler: inline Z80 tail continued
+    DB      $C8, $2A, $B0, $71, $23, $22, $B0, $71 ; rope tile handler: inline Z80 continued
+    DB      $C9                             ; rope tile handler: end of rope handler data
 
 LOC_A2E3:
-    LD      A, $04
-    LD      ($7198), A                  ; RAM $7198
-    CALL    SUB_A2F0
-    LD      A, $02
-    JP      LOC_A0DB
+    LD      A, $04                          ; LD A,$04: A = $04 (rope action code)
+    LD      ($7198), A                      ; RAM $7198
+    CALL    SUB_A2F0                        ; CALL SUB_A2F0: decode rope tile params
+    LD      A, $02                          ; LD A,$02: A = $02 (advance step = 2)
+    JP      LOC_A0DB                        ; JP LOC_A0DB: advance entity queue by 2
 
 SUB_A2F0:
-    CALL    SUB_A4E3
-    LD      A, ($719A)                  ; RAM $719A
-    LD      HL, $9FD1
-    LD      B, $00
-    LD      C, A
-    ADD     HL, BC
-    LD      A, (HL)
-    LD      C, A
-    INC     HL
-    LD      A, ($7198)                  ; RAM $7198
-    LD      B, A
+    CALL    SUB_A4E3                        ; CALL SUB_A4E3: decode tile type to $71B0
+    LD      A, ($719A)                      ; RAM $719A
+    LD      HL, $9FD1                       ; LD HL,$9FD1: HL = $9FD1 (tile coord table)
+    LD      B, $00                          ; LD B,$00: B = $00 (zero extend)
+    LD      C, A                            ; LD C,A: C = tile action index
+    ADD     HL, BC                          ; ADD HL,BC: HL = coord table entry
+    LD      A, (HL)                         ; LD A,(HL): A = lo coord byte
+    LD      C, A                            ; LD C,A: C = lo coord byte
+    INC     HL                              ; INC HL: advance to hi coord byte
+    LD      A, ($7198)                      ; RAM $7198
+    LD      B, A                            ; LD B,A: B = $7198 count byte
 
 SUB_A304:
-    LD      DE, ($71B0)                 ; RAM $71B0
+    LD      DE, ($71B0)                     ; RAM $71B0
 
 SUB_A308:
-    CALL    SUB_AA96
-    LD      A, $03
-    RET     
-    DB      $CD, $F0, $A2, $06, $00, $09, $06, $01
-    DB      $18, $F0, $CD, $E3, $A4, $3A, $9A, $71
-    DB      $21, $D2, $9F, $06, $00, $4F, $09, $ED
-    DB      $5B, $B0, $71, $0E, $01, $3A, $98, $71
-    DB      $47, $CD, $A7, $AE, $23, $05, $CD, $A7
-    DB      $AE, $23, $06, $01, $CD, $A7, $AE, $3E
-    DB      $03, $C9, $CD, $E3, $A4, $3A, $9A, $71
-    DB      $21, $D1, $9F, $06, $00, $4F, $09, $7E
-    DB      $FE, $FF, $20, $08, $3A, $98, $71, $4F
-    DB      $06, $01, $18, $05, $4F, $3A, $98, $71
-    DB      $47, $23, $ED, $5B, $B0, $71, $CD, $A7
-    DB      $AE, $3E, $03, $C9
+    CALL    SUB_AA96                        ; CALL SUB_AA96: render tile via VRAM writer
+    LD      A, $03                          ; LD A,$03: A = $03 (return code)
+    RET                                     ; RET: return from SUB_A308
+    DB      $CD, $F0, $A2, $06, $00, $09, $06, $01 ; rope draw: inline Z80 CALL $A2F0 / LD B,$00 ...
+    DB      $18, $F0, $CD, $E3, $A4, $3A, $9A, $71 ; rope draw: inline Z80 LD B,$01 / JR ...
+    DB      $21, $D2, $9F, $06, $00, $4F, $09, $ED ; rope draw: inline Z80 CALL $A4E3 / LD A ...
+    DB      $5B, $B0, $71, $0E, $01, $3A, $98, $71 ; rope draw: inline Z80 LD HL,$9FD1 / LD B,$00 ...
+    DB      $47, $CD, $A7, $AE, $23, $05, $CD, $A7 ; rope draw: inline Z80 CP $FF / JR NZ / LD A ...
+    DB      $AE, $23, $06, $01, $CD, $A7, $AE, $3E ; rope draw: inline Z80 LD C,A / LD A,($7098) ...
+    DB      $03, $C9, $CD, $E3, $A4, $3A, $9A, $71 ; rope draw: inline Z80 LD B,A / INC HL / LD DE ...
+    DB      $21, $D1, $9F, $06, $00, $4F, $09, $7E ; rope draw: inline Z80 CALL $AEA7 / LD A,$03 / RET
+    DB      $FE, $FF, $20, $08, $3A, $98, $71, $4F ; rope draw: inline Z80 tail bytes
+    DB      $06, $01, $18, $05, $4F, $3A, $98, $71 ; rope draw: inline Z80 continued
+    DB      $47, $23, $ED, $5B, $B0, $71, $CD, $A7 ; rope draw: inline Z80 continued
+    DB      $AE, $3E, $03, $C9              ; rope draw: end of rope draw inline data
 
 SUB_A36A:
-    CALL    SUB_A514
-    JR      C, LOC_A391
-    CALL    SUB_A4E3
-    CALL    SUB_A3A0
-    LD      A, ($719A)                  ; RAM $719A
+    CALL    SUB_A514                        ; CALL SUB_A514: test tile collision carry
+    JR      C, LOC_A391                     ; JR C,LOC_A391: carry -> occupied, skip draw
+    CALL    SUB_A4E3                        ; CALL SUB_A4E3: decode tile type to $71B0
+    CALL    SUB_A3A0                        ; CALL SUB_A3A0: update entity position
+    LD      A, ($719A)                      ; RAM $719A
 
 SUB_A378:
-    LD      HL, $9FD2
-    CALL    SUB_A540
-    LD      BC, $0102
-    CALL    SUB_AEA7
-    INC     HL
-    INC     HL
-    PUSH    BC
-    LD      BC, $0020
-    DB      $EB
-    ADD     HL, BC
-    DB      $EB
-    POP     BC
-    CALL    SUB_AEA7
+    LD      HL, $9FD2                       ; LD HL,$9FD2: HL = $9FD2 (coord table + 1)
+    CALL    SUB_A540                        ; CALL SUB_A540: tile collision lookup
+    LD      BC, $0102                       ; LD BC,$0102: BC = $0102 (1 row, 2 cols)
+    CALL    SUB_AEA7                        ; CALL SUB_AEA7: write tile block to VRAM
+    INC     HL                              ; INC HL: advance HL to next tile entry
+    INC     HL                              ; INC HL: advance HL by second byte
+    PUSH    BC                              ; PUSH BC: save tile block params
+    LD      BC, $0020                       ; LD BC,$0020: BC = $0020 (one VRAM row stride)
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    ADD     HL, BC                          ; ADD HL,BC: HL += $0020 (next VRAM row)
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    POP     BC                              ; POP BC: restore tile block params
+    CALL    SUB_AEA7                        ; CALL SUB_AEA7: write second tile row
 
 LOC_A391:
-    LD      A, $02
-    RET     
+    LD      A, $02                          ; LD A,$02: A = $02 (advance step)
+    RET                                     ; RET: return from LOC_A391
 
 SUB_A394:
-    LD      A, ($71A2)                  ; RAM $71A2
-    SLA     A
-    LD      HL, $72C0                   ; RAM $72C0
-    CALL    SUB_A540
-    RET     
+    LD      A, ($71A2)                      ; RAM $71A2
+    SLA     A                               ; SLA A: animation index * 2 (word offset)
+    LD      HL, $72C0                       ; RAM $72C0
+    CALL    SUB_A540                        ; CALL SUB_A540: tile collision lookup
+    RET                                     ; RET: return from SUB_A394
 
 SUB_A3A0:
-    CALL    SUB_A394
-    LD      DE, ($71B0)                 ; RAM $71B0
-    LD      (HL), E
-    INC     HL
-    LD      (HL), D
-    RET     
+    CALL    SUB_A394                        ; CALL SUB_A394: get collision result in HL
+    LD      DE, ($71B0)                     ; RAM $71B0
+    LD      (HL), E                         ; LD (HL),E: store lo byte of $71B0 to HL
+    INC     HL                              ; INC HL: advance to next byte
+    LD      (HL), D                         ; LD (HL),D: store hi byte of $71B0 to HL
+    RET                                     ; RET: return from SUB_A3A0
 
 SUB_A3AB:
-    CALL    SUB_A514
-    JR      C, LOC_A3E9
-    CALL    SUB_A4E3
-    CALL    SUB_A3A0
-    LD      A, ($719A)                  ; RAM $719A
-    LD      HL, $9FD2
-    LD      B, $00
-    LD      C, A
-    ADD     HL, BC
-    LD      BC, $0301
-    CALL    SUB_A304
-    INC     HL
-    LD      BC, $0060
-    DB      $EB
-    ADD     HL, BC
-    DB      $EB
-    LD      BC, $0101
-    CALL    SUB_AEA7
-    JR      LOC_A3E6
+    CALL    SUB_A514                        ; CALL SUB_A514: test tile collision carry
+    JR      C, LOC_A3E9                     ; JR C,LOC_A3E9: carry -> no solid tile
+    CALL    SUB_A4E3                        ; CALL SUB_A4E3: decode tile type
+    CALL    SUB_A3A0                        ; CALL SUB_A3A0: update position in $71B0
+    LD      A, ($719A)                      ; RAM $719A
+    LD      HL, $9FD2                       ; LD HL,$9FD2: HL = $9FD2 (coord table)
+    LD      B, $00                          ; LD B,$00: B = $00 (zero extend)
+    LD      C, A                            ; LD C,A: C = tile action code
+    ADD     HL, BC                          ; ADD HL,BC: HL = coord entry address
+    LD      BC, $0301                       ; LD BC,$0301: BC = 3 rows, 1 col
+    CALL    SUB_A304                        ; CALL SUB_A304: render 3-row tile block
+    INC     HL                              ; INC HL: advance coord pointer
+    LD      BC, $0060                       ; LD BC,$0060: BC = 3 VRAM row strides
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    ADD     HL, BC                          ; ADD HL,BC: HL += 3 rows stride
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    LD      BC, $0101                       ; LD BC,$0101: BC = 1 row, 1 col
+    CALL    SUB_AEA7                        ; CALL SUB_AEA7: write 1x1 tile to VRAM
+    JR      LOC_A3E6                        ; JR LOC_A3E6: jump to shared exit (LOC_A391)
 
 SUB_A3D5:
-    LD      HL, $9FD2
-    LD      B, $00
-    LD      C, A
-    ADD     HL, BC
-    LD      BC, $0102
-    LD      DE, ($71B0)                 ; RAM $71B0
-    CALL    SUB_AEA7
+    LD      HL, $9FD2                       ; LD HL,$9FD2: HL = $9FD2 (coord table)
+    LD      B, $00                          ; LD B,$00: B = $00 (zero extend)
+    LD      C, A                            ; LD C,A: C = tile action code
+    ADD     HL, BC                          ; ADD HL,BC: HL = coord table entry
+    LD      BC, $0102                       ; LD BC,$0102: BC = 1 row, 2 col
+    LD      DE, ($71B0)                     ; RAM $71B0
+    CALL    SUB_AEA7                        ; CALL SUB_AEA7: write 1x2 tile block
 
 LOC_A3E6:
-    JP      LOC_A391
+    JP      LOC_A391                        ; JP LOC_A391: jump to shared return
 
 LOC_A3E9:
-    CALL    SUB_A4E3
-    LD      A, ($719A)                  ; RAM $719A
-    ADD     A, $02
-    CALL    SUB_A3D5
-    INC     HL
-    INC     HL
-    PUSH    BC
-    LD      BC, $0020
-    DB      $EB
-    ADD     HL, BC
-    DB      $EB
-    POP     BC
-    LD      B, $03
-    CALL    SUB_A308
-    JR      LOC_A3E6
+    CALL    SUB_A4E3                        ; CALL SUB_A4E3: decode tile type
+    LD      A, ($719A)                      ; RAM $719A
+    ADD     A, $02                          ; ADD A,$02: A = action code + 2 (next tile)
+    CALL    SUB_A3D5                        ; CALL SUB_A3D5: render displaced tile row
+    INC     HL                              ; INC HL: advance HL
+    INC     HL                              ; INC HL: advance HL second byte
+    PUSH    BC                              ; PUSH BC: save tile params
+    LD      BC, $0020                       ; LD BC,$0020: BC = $0020 (row stride)
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    ADD     HL, BC                          ; ADD HL,BC: HL += row stride
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    POP     BC                              ; POP BC: restore tile params
+    LD      B, $03                          ; LD B,$03: B = 3 (write 3 rows)
+    CALL    SUB_A308                        ; CALL SUB_A308: write 3-row tile block
+    JR      LOC_A3E6                        ; JR LOC_A3E6: jump to shared exit
 
 SOUND_WRITE_A405:
     CALL    SUB_A514                        ; CALL SUB_A514: collision flag test (returns C if occupied)
@@ -2103,68 +2103,68 @@ SOUND_WRITE_A405:
     LD      A, (HL)                         ; A = (HL): look up Y position
     POP     HL                              ; POP HL
     LD      (HL), A                         ; (HL) = A: store enemy Y position
-    INC     HL
-    PUSH    HL
-    LD      A, ($719A)                  ; RAM $719A
-    LD      E, $48
-    CP      $86
-    JR      NZ, LOC_A45D
-    DEC     HL
-    DEC     HL
-    DEC     (HL)
-    DEC     (HL)
-    INC     HL
-    INC     HL
-    JR      LOC_A465
+    INC     HL                              ; INC HL: advance dest pointer
+    PUSH    HL                              ; PUSH HL: save dest pointer
+    LD      A, ($719A)                      ; RAM $719A
+    LD      E, $48                          ; LD E,$48: E = $48 (default X offset)
+    CP      $86                             ; CP $86: tile = $86 (spider spawn)?
+    JR      NZ, LOC_A45D                    ; JR NZ,LOC_A45D: not spider -> alt X offset
+    DEC     HL                              ; DEC HL: back to Y byte
+    DEC     HL                              ; DEC HL: back further
+    DEC     (HL)                            ; DEC (HL): decrement Y by 1
+    DEC     (HL)                            ; DEC (HL): decrement Y by 1 again
+    INC     HL                              ; INC HL: restore pointer
+    INC     HL                              ; INC HL: restore pointer second step
+    JR      LOC_A465                        ; JR LOC_A465: jump to sprite slot scan
 
 LOC_A45D:
-    LD      E, $10
-    CP      $88
-    JR      Z, LOC_A465
-    LD      E, $08
+    LD      E, $10                          ; LD E,$10: E = $10 (skeleton X offset)
+    CP      $88                             ; CP $88: tile = $88 (skeleton type)?
+    JR      Z, LOC_A465                     ; JR Z,LOC_A465: yes -> use $10 offset
+    LD      E, $08                          ; LD E,$08: E = $08 (small enemy X offset)
 
 LOC_A465:
-    LD      HL, $7086                   ; RAM $7086
+    LD      HL, $7086                       ; RAM $7086
 
 LOC_A468:
-    LD      A, (HL)
-    CP      $FF
-    JR      Z, LOC_A471
-    INC     HL
-    INC     HL
-    JR      LOC_A468
+    LD      A, (HL)                         ; LD A,(HL): A = sprite slot entry
+    CP      $FF                             ; CP $FF: end of sprite table?
+    JR      Z, LOC_A471                     ; JR Z,LOC_A471: yes -> use this slot
+    INC     HL                              ; INC HL: advance past X byte
+    INC     HL                              ; INC HL: advance to next slot
+    JR      LOC_A468                        ; JR LOC_A468: scan next slot
 
 LOC_A471:
-    LD      A, ($707A)                  ; RAM $707A
-    INC     A
-    ADD     A, E
-    LD      (HL), A
-    INC     HL
-    LD      A, ($7196)                  ; RAM $7196
-    BIT     6, A
-    LD      A, $00
-    JR      Z, LOC_A483
-    LD      A, $80
+    LD      A, ($707A)                      ; RAM $707A
+    INC     A                               ; INC A: A = scroll offset + 1
+    ADD     A, E                            ; ADD A,E: A = sprite Y = offset + X offset
+    LD      (HL), A                         ; LD (HL),A: store Y to sprite slot
+    INC     HL                              ; INC HL: advance to sprite X byte
+    LD      A, ($7196)                      ; RAM $7196
+    BIT     6, A                            ; BIT 6,A: bit 6 = facing-left flag
+    LD      A, $00                          ; LD A,$00: A = $00 (facing right)
+    JR      Z, LOC_A483                     ; JR Z,LOC_A483: not set -> keep $00
+    LD      A, $80                          ; LD A,$80: A = $80 (facing left bit set)
 
 LOC_A483:
-    LD      (HL), A
-    LD      A, ($719A)                  ; RAM $719A
-    LD      B, $00
-    LD      HL, $9FD1
-    LD      C, A
-    ADD     HL, BC
-    LD      D, (HL)
-    INC     HL
-    LD      A, (HL)
-    POP     HL
-    LD      (HL), A
-    INC     HL
-    LD      (HL), D
-    RET     
-    DB      $39, $59, $61, $69, $71, $81, $89, $91
-    DB      $A1, $A9, $B1, $00, $00, $00, $00, $00
-    DB      $10, $20, $30, $40, $50, $60, $70, $80
-    DB      $90, $A0, $B0, $C0, $D0, $D0, $F0
+    LD      (HL), A                         ; LD (HL),A: store sprite X/flip to slot
+    LD      A, ($719A)                      ; RAM $719A
+    LD      B, $00                          ; LD B,$00: B = $00 (zero extend)
+    LD      HL, $9FD1                       ; LD HL,$9FD1: HL = $9FD1 (tile frame table)
+    LD      C, A                            ; LD C,A: C = tile action code
+    ADD     HL, BC                          ; ADD HL,BC: HL = frame table entry
+    LD      D, (HL)                         ; LD D,(HL): D = first tile frame byte
+    INC     HL                              ; INC HL: advance to second byte
+    LD      A, (HL)                         ; LD A,(HL): A = second tile frame byte
+    POP     HL                              ; POP HL: restore dest pointer
+    LD      (HL), A                         ; LD (HL),A: store second frame byte
+    INC     HL                              ; INC HL: advance dest
+    LD      (HL), D                         ; LD (HL),D: store first frame byte
+    RET                                     ; RET: return from enemy spawn routine
+    DB      $39, $59, $61, $69, $71, $81, $89, $91 ; enemy spawn X-pos table: column offsets (start)
+    DB      $A1, $A9, $B1, $00, $00, $00, $00, $00 ; enemy spawn X-pos table: continued + null pad
+    DB      $10, $20, $30, $40, $50, $60, $70, $80 ; enemy spawn Y-pos table: row offsets (start)
+    DB      $90, $A0, $B0, $C0, $D0, $D0, $F0 ; enemy spawn Y-pos table: continued
 
 SUB_A4B5:
     LD      A, ($71A7)                      ; A = ($71A7) player current speed
@@ -2176,8 +2176,8 @@ SUB_A4B5:
     LD      A, ($71A8)                      ; A = ($71A8) base speed
     ADD     A, C                            ; ADD A, C: add modifier
     RET                                     ; RET (A = adjusted speed)
-    DB      $F8, $FC, $02, $0A, $14, $20, $2E, $3E
-    DB      $50
+    DB      $F8, $FC, $02, $0A, $14, $20, $2E, $3E ; speed modifier table: delta bytes per speed level
+    DB      $50                             ; speed modifier table: last entry ($50)
 
 SUB_A4CE:
     LD      ($71A5), A                      ; ($71A5) = A: save speed level
@@ -2189,7 +2189,7 @@ SUB_A4CE:
     LD      BC, $0004                       ; BC = $0004 (4 bytes per record)
     LD      DE, $7190                       ; DE = $7190 (destination: speed record buffer)
     LDIR                                    ; LDIR: copy 4-byte speed record to RAM
-    RET     
+    RET                                     ; RET: return from SUB_A4CE
 
 SUB_A4E3:
     LD      A, ($7196)                      ; A = ($7196) raw tile byte
@@ -2202,7 +2202,7 @@ SUB_A4E3:
     DEC     HL                              ; DEC HL -> $71B0
     LD      A, ($7197)                      ; A = ($7197) second tile byte
     LD      (HL), A                         ; (HL) = A: store second tile data byte
-    RET     
+    RET                                     ; RET: return from SUB_A4E3
 
 SUB_A4F8:
     LD      A, ($7196)                      ; A = ($7196) raw tile byte
@@ -2213,9 +2213,9 @@ SUB_A4F8:
     ADD     HL, BC                          ; ADD HL, BC
     LD      A, (HL)                         ; A = (HL): look up action code
     LD      ($719A), A                      ; ($719A) = A: store action code
-    RET     
-    DB      $01, $20, $00, $2A, $B0, $71, $09, $22
-    DB      $B0, $71, $C9
+    RET                                     ; RET: return from SUB_A4F8
+    DB      $01, $20, $00, $2A, $B0, $71, $09, $22 ; inline Z80: LD BC,$2001 / LD HL,($71B0) ...
+    DB      $B0, $71, $C9                   ; inline Z80: ADD HL,BC / LD ($71B0) / RET
 
 SUB_A514:
     LD      A, ($71A1)                      ; A = ($71A1) player velocity / frame index
@@ -2282,31 +2282,31 @@ LOC_A55A:                                   ; LOC_A55A:
     POP     HL                              ; POP HL
     INC     HL                              ; INC HL: next table entry
     JR      LOC_A55A                        ; JR LOC_A55A: loop until sentinel
-    DB      $21, $B1, $71, $23, $7E, $FE, $FF, $20
-    DB      $FA, $7D, $FE, $B7, $37, $C8, $79, $FE
-    DB      $44, $20, $0F, $21, $00, $10, $22, $BD
-    DB      $70, $18, $08
+    DB      $21, $B1, $71, $23, $7E, $FE, $FF, $20 ; inline Z80: LD HL,$71B1 / INC HL / LD A,(HL) ...
+    DB      $FA, $7D, $FE, $B7, $37, $C8, $79, $FE ; inline Z80: CP $FF / JR NZ / LD A,L ...
+    DB      $44, $20, $0F, $21, $00, $10, $22, $BD ; inline Z80: CP $B7 / SCF / RET Z / LD A,C ...
+    DB      $70, $18, $08                   ; inline Z80: CP $44 / JR NZ / LD HL,$1000 ...
 
 SUB_A587:
     CALL    SUB_AF70                        ; CALL SUB_AF70: BCD score add (IY=$7017 -> $7015/$7016/$7017)
     CALL    SUB_AEFE                        ; CALL SUB_AEFE: refresh score row on VRAM
-    RET     
-    DB      $71, $CD, $48, $A5, $E5, $2A, $BD, $70
-    DB      $CD, $87, $A5, $E1, $37, $3F, $C9, $3E
-    DB      $06, $32, $49, $70, $21, $5F, $70, $CB
-    DB      $D6, $CD, $06, $AC, $3E, $FF, $32, $A9
-    DB      $70, $3E, $01, $32, $AD, $70, $21, $01
-    DB      $00, $22, $E0, $72, $3E, $08, $32, $A8
-    DB      $71, $CD, $67, $A0, $CD, $7E, $8E, $3E
-    DB      $05, $32, $79, $70, $3A, $07, $72, $CB
-    DB      $7F, $28, $F9, $AF, $32, $07, $72, $21
-    DB      $A1, $A8, $5E, $3A, $5F, $70, $CB, $5F
-    DB      $20, $F8, $23, $56, $7A, $FE, $FF, $28
-    DB      $E3, $23, $4E, $23, $46, $E5, $C5, $E1
-    DB      $1A, $FE, $FE, $28, $0D, $FE, $01, $20
-    DB      $07, $D5, $E5, $CD, $3A, $AE, $E1, $D1
-    DB      $1A, $3D, $E1, $23, $FE, $00, $20, $01
-    DB      $7E, $12, $23, $18, $CD
+    RET                                     ; RET: return from SUB_A587
+    DB      $71, $CD, $48, $A5, $E5, $2A, $BD, $70 ; inline Z80: LD A,C / CALL $A548 / PUSH HL ...
+    DB      $CD, $87, $A5, $E1, $37, $3F, $C9, $3E ; inline Z80: CALL $A587 / POP HL / SCF+CCF / RET ...
+    DB      $06, $32, $49, $70, $21, $5F, $70, $CB ; inline Z80: LD A,$06 / LD ($7049) / LD HL,$705F ...
+    DB      $D6, $CD, $06, $AC, $3E, $FF, $32, $A9 ; inline Z80: CB $D6 / CALL $AC06 / LD A,$FF ...
+    DB      $70, $3E, $01, $32, $AD, $70, $21, $01 ; inline Z80: LD ($70A9) / LD A,$01 / LD ($70AD) ...
+    DB      $00, $22, $E0, $72, $3E, $08, $32, $A8 ; inline Z80: LD HL,$0001 / LD ($72E0) / LD A,$08 ...
+    DB      $71, $CD, $67, $A0, $CD, $7E, $8E, $3E ; inline Z80: LD ($71A8) / CALL $A067 / CALL $8E7E ...
+    DB      $05, $32, $79, $70, $3A, $07, $72, $CB ; inline Z80: LD A,$05 / LD ($7079) / LD A,($7207) ...
+    DB      $7F, $28, $F9, $AF, $32, $07, $72, $21 ; inline Z80: BIT 7 / JR Z / XOR A / LD ($7207) ...
+    DB      $A1, $A8, $5E, $3A, $5F, $70, $CB, $5F ; inline Z80: LD HL,$A8A1 / LD E,(HL) / LD A,($705F)
+    DB      $20, $F8, $23, $56, $7A, $FE, $FF, $28 ; inline Z80: BIT 3 / JR NZ / INC HL / LD E,(HL) ...
+    DB      $E3, $23, $4E, $23, $46, $E5, $C5, $E1 ; inline Z80: LD D,A / CALL $AE3A / JR ...
+    DB      $1A, $FE, $FE, $28, $0D, $FE, $01, $20 ; inline Z80: tail continued
+    DB      $07, $D5, $E5, $CD, $3A, $AE, $E1, $D1 ; inline Z80: continued
+    DB      $1A, $3D, $E1, $23, $FE, $00, $20, $01 ; inline Z80: continued
+    DB      $7E, $12, $23, $18, $CD         ; inline Z80: end of SUB_A587 inline data
 
 SUB_A60B:
     LD      HL, $705F                       ; HL = $705F (game mode flags)
@@ -2333,7 +2333,7 @@ LOC_A638:                                   ; LOC_A638: enemy placement loop
     PUSH    BC                              ; PUSH BC (save loop counter)
     LD      A, (HL)                         ; A = (HL): read enemy type byte
     AND     $07                             ; AND $07: isolate 3-bit type
-    SET     1, A                            ; SET 1, A: set 'used' flag
+    SET     1, A                            ; SET 1, A: set used flag
     LD      B, A                            ; B = A (tile number)
     LD      C, $01                          ; C = $01 (attribute flag)
     INC     HL                              ; INC HL
@@ -2390,74 +2390,74 @@ LOC_A695:                                   ; LOC_A695:
     CALL    SUB_AEFE                        ; CALL SUB_AEFE: VDP address setup (flush score row)
     LD      BC, $01E2                       ; BC = $01E2 (VDP reg 1, value $E2 -- enable display + sprites)
     CALL    WRITE_REGISTER                  ; CALL WRITE_REGISTER: enable VDP display with sprites
-    RET     
-    DB      $E5, $21, $97, $70, $34, $E1, $3A, $97
-    DB      $70, $E6, $11, $FE, $00, $20, $02, $37
-    DB      $C9, $37, $3F, $C9, $D1, $D5, $13, $1A
-    DB      $E6, $80, $47, $1A, $E6, $7F, $3D, $F2
-    DB      $C3, $A6, $3E, $05, $80, $12, $E6, $7F
-    DB      $FE, $00, $20, $1D, $D1, $E1, $E5, $D5
-    DB      $23, $23, $23, $7E, $FE, $00, $28, $0C
-    DB      $3A, $4A, $70, $FE, $00, $3E, $0C, $28
-    DB      $02, $3E, $0E, $77, $2B, $7E, $EE, $1C
-    DB      $77, $21, $5A, $70, $7E, $23, $FE, $10
-    DB      $20, $71, $7E, $FE, $11, $20, $6C, $E1
-    DB      $7E, $CB, $6F, $20, $1E, $CD, $9F, $A6
-    DB      $E5, $38, $60, $3A, $AB, $70, $FE, $02
-    DB      $20, $59, $E1, $CD, $ED, $AB, $E3, $7E
-    DB      $C6, $02, $77, $E1, $CB, $EE, $CB, $FE
-    DB      $C3, $8F, $A8, $CB, $7F, $20, $1C, $CB
-    DB      $AE, $CD, $9F, $A6, $3E, $08, $38, $06
-    DB      $7E, $EE, $80, $77, $3E, $FE, $E3, $23
-    DB      $86, $77, $2B, $7E, $C6, $F9, $77, $E1
-    DB      $C3, $8F, $A8, $0E, $FF, $3A, $5B, $70
-    DB      $FE, $E8, $28, $04, $FE, $08, $20, $15
-    DB      $CD, $9F, $A6, $38, $06, $CB, $FE, $06
-    DB      $FE, $18, $04, $CB, $BE, $06, $08, $0E
-    DB      $00, $CB, $AE, $18, $02, $06, $00, $E3
-    DB      $C3, $7F, $A8, $21, $57, $70, $7E, $23
-    DB      $FE, $88, $20, $2B, $7E, $FE, $89, $20
-    DB      $26, $3A, $AB, $70, $FE, $02, $20, $1F
-    DB      $E1, $CB, $6E, $20, $12, $CD, $9F, $A6
-    DB      $E5, $38, $14, $E1, $CD, $ED, $AB, $CB
-    DB      $BE, $CB, $EE, $3E, $00, $18, $9F, $CB
-    DB      $7E, $20, $A8, $0E, $01, $18, $C6, $E1
-    DB      $01, $00, $00, $CB, $6E, $20, $F0, $C3
-    DB      $2F, $A8, $21, $86, $70, $7E, $FE, $FF
-    DB      $C8, $E5, $E6, $07, $CB, $27, $CB, $27
-    DB      $21, $00, $73, $CD, $40, $A5, $E5, $CD
-    DB      $59, $91, $E1, $7E, $E3, $FE, $15, $38
-    DB      $04, $FE, $B8, $38, $04, $7E, $EE, $80
-    DB      $77, $7E, $CB, $77, $E5, $C2, $B3, $A6
-    DB      $E1, $D1, $D5, $F5, $13, $13, $13, $EB
-    DB      $7E, $FE, $00, $28, $0C, $3A, $4A, $70
-    DB      $FE, $00, $3E, $0F, $28, $02, $3E, $0E
-    DB      $77, $EB, $F1, $CB, $5F, $28, $2F, $23
-    DB      $7E, $3C, $77, $2B, $E6, $0F, $FE, $04
-    DB      $20, $24, $23, $7E, $E6, $80, $77, $2B
-    DB      $7E, $CB, $7F, $0E, $FC, $28, $02, $0E
-    DB      $04, $E3, $E5, $23, $23, $7E, $81, $FE
-    DB      $2C, $20, $02, $3E, $0C, $FE, $08, $20
-    DB      $02, $3E, $28, $77, $E1, $E3, $7E, $CB
-    DB      $67, $28, $0D, $3A, $85, $70, $FE, $08
-    DB      $38, $1D, $FE, $F5, $30, $19, $18, $1B
-    DB      $3A, $5B, $70, $FE, $00, $28, $10, $7E
-    DB      $CB, $7F, $3A, $57, $70, $20, $03, $3A
-    DB      $59, $70, $CD, $94, $A8, $20, $04, $7E
-    DB      $EE, $80, $77, $7E, $CB, $5F, $0E, $00
-    DB      $20, $18, $E5, $23, $7E, $E6, $80, $47
-    DB      $7E, $E6, $7F, $3D, $F2, $60, $A8, $3E
-    DB      $39, $77, $21, $B3, $AB, $CD, $40, $A5
-    DB      $4E, $E1, $7E, $E3, $06, $01, $CB, $7F
-    DB      $28, $02, $06, $FF, $E3, $23, $7E, $2B
-    DB      $E3, $CB, $7F, $28, $03, $78, $80, $47
-    DB      $7E, $91, $77, $23, $7E, $80, $77, $E1
-    DB      $FE, $08, $30, $04, $7E, $EE, $80, $77
-    DB      $23, $23, $C3, $A4, $A7, $E5, $C5, $21
-    DB      $3C, $94, $01, $08, $00, $ED, $B1, $C1
-    DB      $E1, $C9, $73, $70, $E5, $91, $02, $12
-    DB      $70, $5F, $8F, $04, $68, $70, $D1, $88
-    DB      $01, $74, $70, $D6, $A8, $01, $FF, $FF
+    RET                                     ; RET: return after WRITE_REGISTER
+    DB      $E5, $21, $97, $70, $34, $E1, $3A, $97 ; enemy movement inline Z80: PUSH HL / LD HL,$7097 ...
+    DB      $70, $E6, $11, $FE, $00, $20, $02, $37 ; enemy movement inline Z80: LD A,($7070) / AND $11 ...
+    DB      $C9, $37, $3F, $C9, $D1, $D5, $13, $1A ; enemy movement inline Z80: CP $80 / JR Z / INC HL ...
+    DB      $E6, $80, $47, $1A, $E6, $7F, $3D, $F2 ; enemy movement inline Z80: CP $80 / LD A,A ...
+    DB      $C3, $A6, $3E, $05, $80, $12, $E6, $7F ; enemy movement inline Z80: continued ...
+    DB      $FE, $00, $20, $1D, $D1, $E1, $E5, $D5 ; enemy movement inline Z80: JR NZ / LD HL,($7057) ...
+    DB      $23, $23, $23, $7E, $FE, $00, $28, $0C ; enemy movement inline Z80: LD A,($704A) / CP $00 ...
+    DB      $3A, $4A, $70, $FE, $00, $3E, $0C, $28 ; enemy movement inline Z80: CALL $A69F / PUSH HL ...
+    DB      $02, $3E, $0E, $77, $2B, $7E, $EE, $1C ; enemy movement inline Z80: JR NC / LD A,($70AB) ...
+    DB      $77, $21, $5A, $70, $7E, $23, $FE, $10 ; enemy movement inline Z80: JR NZ / CALL $ABEC ...
+    DB      $20, $71, $7E, $FE, $11, $20, $6C, $E1 ; enemy movement inline Z80: CALL $ABCE / CB $BE ...
+    DB      $7E, $CB, $6F, $20, $1E, $CD, $9F, $A6 ; enemy movement inline Z80: CB $EE / JP $A88F ...
+    DB      $E5, $38, $60, $3A, $AB, $70, $FE, $02 ; enemy movement inline Z80: CB $AE / CALL $A69F ...
+    DB      $20, $59, $E1, $CD, $ED, $AB, $E3, $7E ; enemy movement inline Z80: LD A,$08 / JR NC ...
+    DB      $C6, $02, $77, $E1, $CB, $EE, $CB, $FE ; enemy movement inline Z80: LD A,$FE / EX AF ...
+    DB      $C3, $8F, $A8, $CB, $7F, $20, $1C, $CB ; enemy movement inline Z80: LD C,$FF / LD A,($705B)
+    DB      $AE, $CD, $9F, $A6, $3E, $08, $38, $06 ; enemy movement inline Z80: CP $E8 / JR Z / CP $08 ...
+    DB      $7E, $EE, $80, $77, $3E, $FE, $E3, $23 ; enemy movement inline Z80: CALL $A69F / JR NC ...
+    DB      $86, $77, $2B, $7E, $C6, $F9, $77, $E1 ; enemy movement inline Z80: CB $FE / LD B,$FE ...
+    DB      $C3, $8F, $A8, $0E, $FF, $3A, $5B, $70 ; enemy movement inline Z80: LD C,$00 / CB $AE ...
+    DB      $FE, $E8, $28, $04, $FE, $08, $20, $15 ; enemy movement inline Z80: JP $A87F / LD HL,$7057 ...
+    DB      $CD, $9F, $A6, $38, $06, $CB, $FE, $06 ; enemy movement inline Z80: CP $88 / JR NZ / CP $89 ...
+    DB      $FE, $18, $04, $CB, $BE, $06, $08, $0E ; enemy movement inline Z80: JR NZ / LD A,($70AB) ...
+    DB      $00, $CB, $AE, $18, $02, $06, $00, $E3 ; enemy movement inline Z80: CALL NZ / CB $6E ...
+    DB      $C3, $7F, $A8, $21, $57, $70, $7E, $23 ; enemy movement inline Z80: CALL $A69F / PUSH HL ...
+    DB      $FE, $88, $20, $2B, $7E, $FE, $89, $20 ; enemy movement inline Z80: CB $BE / CB $EE / LD A,$00
+    DB      $26, $3A, $AB, $70, $FE, $02, $20, $1F ; enemy movement inline Z80: JR / CB $7E / JR NZ ...
+    DB      $E1, $CB, $6E, $20, $12, $CD, $9F, $A6 ; enemy movement inline Z80: LD BC,$0000 / CB $6E ...
+    DB      $E5, $38, $14, $E1, $CD, $ED, $AB, $CB ; enemy movement inline Z80: JP $A82F / LD HL,$7086 ...
+    DB      $BE, $CB, $EE, $3E, $00, $18, $9F, $CB ; enemy movement inline Z80: CALL NZ / AND $07 ...
+    DB      $7E, $20, $A8, $0E, $01, $18, $C6, $E1 ; enemy movement inline Z80: CALL $A540 / PUSH HL ...
+    DB      $01, $00, $00, $CB, $6E, $20, $F0, $C3 ; enemy movement inline Z80: CALL $5991 / POP HL ...
+    DB      $2F, $A8, $21, $86, $70, $7E, $FE, $FF ; enemy movement inline Z80: CP $15 / JR C ...
+    DB      $C8, $E5, $E6, $07, $CB, $27, $CB, $27 ; enemy movement inline Z80: CB $77 / PUSH HL ...
+    DB      $21, $00, $73, $CD, $40, $A5, $E5, $CD ; enemy movement inline Z80: JR NZ / POP DE ...
+    DB      $59, $91, $E1, $7E, $E3, $FE, $15, $38 ; enemy movement inline Z80: CP $00 / JR Z ...
+    DB      $04, $FE, $B8, $38, $04, $7E, $EE, $80 ; enemy movement inline Z80: CP $0F / JR Z ...
+    DB      $77, $7E, $CB, $77, $E5, $C2, $B3, $A6 ; enemy movement inline Z80: CB $5F / JR NZ ...
+    DB      $E1, $D1, $D5, $F5, $13, $13, $13, $EB ; enemy movement inline Z80: INC HL / LD A,(HL) ...
+    DB      $7E, $FE, $00, $28, $0C, $3A, $4A, $70 ; enemy movement inline Z80: LD (HL),A / LD A,(HL) ...
+    DB      $FE, $00, $3E, $0F, $28, $02, $3E, $0E ; enemy movement inline Z80: CB $7F / LD C,$FC ...
+    DB      $77, $EB, $F1, $CB, $5F, $28, $2F, $23 ; enemy movement inline Z80: LD C,$04 / EX (SP),HL ...
+    DB      $7E, $3C, $77, $2B, $E6, $0F, $FE, $04 ; enemy movement inline Z80: CP $2C / JR NZ / LD A,$0C
+    DB      $20, $24, $23, $7E, $E6, $80, $77, $2B ; enemy movement inline Z80: CP $08 / JR NZ / LD A,$28 ...
+    DB      $7E, $CB, $7F, $0E, $FC, $28, $02, $0E ; enemy movement inline Z80: BIT 0 / JR Z / LD A,($7085)
+    DB      $04, $E3, $E5, $23, $23, $7E, $81, $FE ; enemy movement inline Z80: CP $08 / JR C / CP $F5 ...
+    DB      $2C, $20, $02, $3E, $0C, $FE, $08, $20 ; enemy movement inline Z80: LD A,($705B) / CP $00 ...
+    DB      $02, $3E, $28, $77, $E1, $E3, $7E, $CB ; enemy movement inline Z80: LD A,(HL) / BIT 7 ...
+    DB      $67, $28, $0D, $3A, $85, $70, $FE, $08 ; enemy movement inline Z80: JR NZ / LD A,(HL) / BIT 7
+    DB      $38, $1D, $FE, $F5, $30, $19, $18, $1B ; enemy movement inline Z80: LD C,$00 / JR NZ ...
+    DB      $3A, $5B, $70, $FE, $00, $28, $10, $7E ; enemy movement inline Z80: INC HL / LD A,(HL) ...
+    DB      $CB, $7F, $3A, $57, $70, $20, $03, $3A ; enemy movement inline Z80: LD D,A / LD A,E / AND $7F
+    DB      $59, $70, $CD, $94, $A8, $20, $04, $7E ; enemy movement inline Z80: LD A,$39 / LD (HL),A ...
+    DB      $EE, $80, $77, $7E, $CB, $5F, $0E, $00 ; enemy movement inline Z80: PUSH HL,DE / PUSH HL ...
+    DB      $20, $18, $E5, $23, $7E, $E6, $80, $47 ; enemy movement inline Z80: LD B,$01 / CB $7F ...
+    DB      $7E, $E6, $7F, $3D, $F2, $60, $A8, $3E ; enemy movement inline Z80: CB $7F / JR Z / LD B,A ...
+    DB      $39, $77, $21, $B3, $AB, $CD, $40, $A5 ; enemy movement inline Z80: LD A,(HL) / SUB B ...
+    DB      $4E, $E1, $7E, $E3, $06, $01, $CB, $7F ; enemy movement inline Z80: ADD A,(HL) / LD (HL),A ...
+    DB      $28, $02, $06, $FF, $E3, $23, $7E, $2B ; enemy movement inline Z80: INC HL (x2) / JP $A7A4 ...
+    DB      $E3, $CB, $7F, $28, $03, $78, $80, $47 ; enemy movement inline Z80: CPIR / POP BC / POP HL ...
+    DB      $7E, $91, $77, $23, $7E, $80, $77, $E1 ; enemy movement inline Z80: LD A,($7370) / LD ($705F) ...
+    DB      $FE, $08, $30, $04, $7E, $EE, $80, $77 ; enemy movement inline Z80: LD A,($7001) / LD B,$FF ...
+    DB      $23, $23, $C3, $A4, $A7, $E5, $C5, $21 ; enemy movement inline Z80: LD A,$FF / LD A,$FF (end)
+    DB      $3C, $94, $01, $08, $00, $ED, $B1, $C1 ; enemy movement inline Z80: tail continued
+    DB      $E1, $C9, $73, $70, $E5, $91, $02, $12 ; enemy movement inline Z80: continued
+    DB      $70, $5F, $8F, $04, $68, $70, $D1, $88 ; enemy movement inline Z80: continued
+    DB      $01, $74, $70, $D6, $A8, $01, $FF, $FF ; enemy movement inline Z80: end of enemy movement data
 
 SUB_A8B7:
     PUSH    HL                              ; PUSH HL
@@ -2466,7 +2466,7 @@ SUB_A8B7:
     LD      HL, $70AF                       ; HL = $70AF (VRAM nesting counter)
     INC     (HL)                            ; INC (HL): increment VRAM nesting counter
     POP     HL                              ; POP HL
-    RET     
+    RET                                     ; RET: return from VRAM-lock enter
 
 SUB_A8C3:
     PUSH    HL                              ; PUSH HL
@@ -2480,21 +2480,21 @@ SUB_A8C3:
     RES     1, (HL)                         ; RES 1, (HL): clear bit 1 = game logic can resume
 
 LOC_A8D3:
-    POP     AF
-    POP     HL
-    RET     
-    DB      $3A, $A8, $70, $3D, $20, $02, $3E, $60
-    DB      $32, $A8, $70, $FE, $60, $20, $2E, $21
-    DB      $00, $70, $CB, $F6, $21, $CD, $AB, $11
-    DB      $1D, $00, $CD, $05, $A9, $3A, $A8, $70
-    DB      $FE, $60, $20, $27, $21, $00, $70, $CB
-    DB      $EE, $21, $CD, $AB, $11, $1C, $00, $D5
-    DB      $E5, $E1, $D1, $FD, $21, $01, $00, $3E
-    DB      $04, $CD, $2E, $AE, $C9, $FE, $48, $20
-    DB      $DC, $21, $00, $70, $CB, $B6, $21, $2E
-    DB      $A9, $18, $CC, $FE, $30, $C0, $21, $00
-    DB      $70, $CB, $AE, $21, $2E, $A9, $18, $D4
-    DB      $40
+    POP     AF                              ; POP AF: restore AF
+    POP     HL                              ; POP HL: restore HL
+    RET                                     ; RET: return from SUB_A8C3
+    DB      $3A, $A8, $70, $3D, $20, $02, $3E, $60 ; inline Z80: LD A,($70A8) / DEC A / JR NZ / LD A,$60
+    DB      $32, $A8, $70, $FE, $60, $20, $2E, $21 ; inline Z80: LD ($70A8) / CP $60 / JR NZ / LD HL,$7000
+    DB      $00, $70, $CB, $F6, $21, $CD, $AB, $11 ; inline Z80: SET 6,(HL) / LD HL,$ABCD / LD DE,$001D ...
+    DB      $1D, $00, $CD, $05, $A9, $3A, $A8, $70 ; inline Z80: CALL $A905 / LD A,($70A8) ...
+    DB      $FE, $60, $20, $27, $21, $00, $70, $CB ; inline Z80: CP $60 / JR NZ / LD HL,$7000 / CB $EE ...
+    DB      $EE, $21, $CD, $AB, $11, $1C, $00, $D5 ; inline Z80: LD HL,$ABCD / LD DE,$001C ...
+    DB      $E5, $E1, $D1, $FD, $21, $01, $00, $3E ; inline Z80: PUSH DE / PUSH HL / POP HL / POP DE ...
+    DB      $04, $CD, $2E, $AE, $C9, $FE, $48, $20 ; inline Z80: LD IY,$0001 / LD A,$04 / CALL $AE2E ...
+    DB      $DC, $21, $00, $70, $CB, $B6, $21, $2E ; inline Z80: RET / CP $48 / JR NZ / LD HL,$7000 ...
+    DB      $A9, $18, $CC, $FE, $30, $C0, $21, $00 ; inline Z80: CB $B6 / LD HL,$A92E / JR ...
+    DB      $70, $CB, $AE, $21, $2E, $A9, $18, $D4 ; inline Z80: CP $30 / RET NZ / LD HL,$7000 ...
+    DB      $40                             ; inline Z80: CB $AE / LD HL,$A92E / JR / DB $40
 
 SUB_A92F:
     CALL    SUB_A8B7                        ; CALL SUB_A8B7: VRAM-lock enter
@@ -2537,33 +2537,33 @@ LOC_A96E:                                   ; LOC_A96E:
     LD      B, $04                          ; B = $04 (VDP register 4)
     CALL    WRITE_REGISTER                  ; CALL WRITE_REGISTER: write VDP register 4 with C value
     CALL    SUB_A8C3                        ; CALL SUB_A8C3: VRAM-lock exit
-    RET     
+    RET                                     ; RET: return from LOC_A96E
 
 SUB_A97A:
-    LD      ($73F9), A                  ; RAM $73F9
-    LD      B, $04
-    CALL    WRITE_REGISTER
-    LD      A, ($7096)                  ; RAM $7096
-    PUSH    AF
-    SLA     A
-    LD      HL, $85BC
-    LD      DE, $00E0
-    CALL    SUB_A9A0
-    LD      HL, $85CA
-    LD      DE, $00E8
-    POP     AF
-    AND     $01
-    SLA     A
-    SLA     A
-    SLA     A
+    LD      ($73F9), A                      ; RAM $73F9
+    LD      B, $04                          ; LD B,$04: B = $04 (VDP register 4)
+    CALL    WRITE_REGISTER                  ; CALL WRITE_REGISTER: write pattern table reg
+    LD      A, ($7096)                      ; RAM $7096
+    PUSH    AF                              ; PUSH AF: save direction index
+    SLA     A                               ; SLA A: index * 2 for pattern offset
+    LD      HL, $85BC                       ; LD HL,$85BC: HL = $85BC (tile pattern data)
+    LD      DE, $00E0                       ; LD DE,$00E0: DE = $00E0 (VRAM dest pattern)
+    CALL    SUB_A9A0                        ; CALL SUB_A9A0: write first pattern block
+    LD      HL, $85CA                       ; LD HL,$85CA: HL = $85CA (second pattern data)
+    LD      DE, $00E8                       ; LD DE,$00E8: DE = $00E8 (VRAM dest second)
+    POP     AF                              ; POP AF: restore direction index
+    AND     $01                             ; AND $01: keep bit 0 (even/odd direction)
+    SLA     A                               ; SLA A: shift for sub-pattern offset
+    SLA     A                               ; SLA A: shift again
+    SLA     A                               ; SLA A: A = sub-pattern offset * 8
 
 SUB_A9A0:
-    CALL    SUB_A540
-    LD      IY, $0001
-    LD      A, $03
-    CALL    SUB_AE2E
-    RET     
-    DB      $90, $08, $00, $95, $00, $08
+    CALL    SUB_A540                        ; CALL SUB_A540: tile collision/offset lookup
+    LD      IY, $0001                       ; LD IY,$0001: IY = 1 (byte count for PUT_VRAM)
+    LD      A, $03                          ; LD A,$03: A = $03 (PUT_VRAM mode)
+    CALL    SUB_AE2E                        ; CALL SUB_AE2E: write tile pattern via PUT_VRAM
+    RET                                     ; RET: return from SUB_A9A0
+    DB      $90, $08, $00, $95, $00, $08    ; SUB_A9A0 post-RET: tile VRAM-write params table
 
 ; =============================================================================
 ; NMI HANDLER -- NMI (~$AA00)
@@ -2591,7 +2591,7 @@ NMI:
     PUSH    HL                              ; PUSH HL
     PUSH    IX                              ; PUSH IX
     PUSH    IY                              ; PUSH IY
-    EX      AF, AF'                         ; EX AF, AF': swap to alternate A/F
+    EX      AF, AF'                         ; EX AF, AF: swap to alternate A/F
     EXX                                     ; EXX: swap to alternate BC/DE/HL
     PUSH    AF                              ; PUSH AF: save alternate AF
     PUSH    BC                              ; PUSH BC: save alternate BC
@@ -2676,7 +2676,7 @@ LOC_AA4D:                                   ; LOC_AA4D:
     POP     DE                              ; POP DE
     POP     BC                              ; POP BC
     POP     AF                              ; POP AF: restore alternate register set
-    EX      AF, AF'                         ; EX AF, AF': restore main AF
+    EX      AF, AF'                         ; EX AF, AF: restore main AF
     EXX                                     ; EXX: restore main BC/DE/HL
     POP     IY                              ; POP IY
     POP     IX                              ; POP IX
@@ -2701,9 +2701,9 @@ SUB_AA5D:
     LD      HL, $AA89                       ; HL = $AA89
     LD      BC, $030A                       ; BC = $030A
     CALL    SUB_AA96                        ; CALL SUB_AA96: render second set
-    RET     
-    DB      $0A, $0A, $00, $00, $00, $00, $00, $00
-    DB      $00, $00, $0B, $0B, $09, $0C
+    RET                                     ; RET: return from sprite setup
+    DB      $0A, $0A, $00, $00, $00, $00, $00, $00 ; sprite tile table: extra tile IDs row (post-RET start)
+    DB      $00, $00, $0B, $0B, $09, $0C    ; sprite tile table: continued + extra IDs
 
 SUB_AA96:
     PUSH    HL                              ; PUSH HL
@@ -2726,7 +2726,7 @@ SUB_AAA8:
     DB      $EB                             ; DB $EB: EX DE,HL (restore)
     LD      HL, $AA95                       ; HL = $AA95 (second sprite tile data)
     CALL    SUB_AEA7                        ; CALL SUB_AEA7: write second block to VRAM (offset by $80)
-    RET     
+    RET                                     ; RET: return from SUB_AAA8
 
 LOC_AABB:
     LD      A, ($705F)                      ; A = ($705F) game mode flags
@@ -2742,7 +2742,7 @@ LOC_AABB:
     XOR     A                               ; A = $00
     CALL    SUB_AE25                        ; CALL SUB_AE25: clear score area in VRAM
     LD      A, ($7049)                      ; A = ($7049) life counter
-    PUSH    AF
+    PUSH    AF                              ; PUSH AF: save life count for later
     CP      $01                             ; CP $01: only 1 life?
     JR      Z, LOC_AB07                     ; JR Z, LOC_AB07: 1 life -> skip icon rendering
     DEC     A                               ; DEC A: lives-1 = number of extra life icons
@@ -2771,127 +2771,127 @@ LOC_AB00:                                   ; LOC_AB00:
 LOC_AB07:                                   ; LOC_AB07:
     POP     AF                              ; POP AF
     CALL    SUB_A8C3                        ; CALL SUB_A8C3: DEC $70AF, RES bit 1 $705F if zero (VRAM-lock exit)
-    RET     
-    DB      $10, $11, $11, $10, $88, $89, $89, $88
-    DB      $04, $BA, $06, $B8, $B8, $06, $BA, $04
-    DB      $05, $B9, $B9, $05, $FF
+    RET                                     ; RET: return from lives/score display
+    DB      $10, $11, $11, $10, $88, $89, $89, $88 ; lives/score tile table: tile IDs for display icons
+    DB      $04, $BA, $06, $B8, $B8, $06, $BA, $04 ; lives/score tile table: continued icon IDs
+    DB      $05, $B9, $B9, $05, $FF         ; lives/score tile table: sentinel $FF
 
 LOC_AB21:
-    PUSH    AF
-    INC     HL
-    LD      A, (HL)
-    LD      (DE), A
-    POP     AF
-    DEC     HL
-    JR      LOC_AB6B
+    PUSH    AF                              ; PUSH AF: save matched tile byte
+    INC     HL                              ; INC HL: advance to replacement tile byte
+    LD      A, (HL)                         ; LD A,(HL): A = replacement tile byte
+    LD      (DE), A                         ; LD (DE),A: store replacement to sprite RAM
+    POP     AF                              ; POP AF: restore original tile byte
+    DEC     HL                              ; DEC HL: restore HL to match entry
+    JR      LOC_AB6B                        ; JR LOC_AB6B: advance to next sprite byte
 
 SUB_AB29:
-    PUSH    HL
-    PUSH    DE
-    PUSH    BC
-    PUSH    AF
-    CALL    SUB_A8B7
-    LD      A, $13
-    LD      ($7002), A                  ; RAM $7002
-    LD      HL, $7200                   ; RAM $7200
-    LD      DE, $00A0
-    LD      IY, $0020
-    LD      A, $02
+    PUSH    HL                              ; PUSH HL: save sprite table pointer
+    PUSH    DE                              ; PUSH DE: save dest pointer
+    PUSH    BC                              ; PUSH BC: save loop params
+    PUSH    AF                              ; PUSH AF: save caller AF
+    CALL    SUB_A8B7                        ; CALL SUB_A8B7: VRAM-lock enter
+    LD      A, $13                          ; LD A,$13: A = $13 (19 sprite rows)
+    LD      ($7002), A                      ; RAM $7002
+    LD      HL, $7200                       ; RAM $7200
+    LD      DE, $00A0                       ; LD DE,$00A0: DE = $00A0 (sprite stride)
+    LD      IY, $0020                       ; LD IY,$0020: IY = $20 (sprite row width)
+    LD      A, $02                          ; LD A,$02: A = $02 (initial row counter)
 
 LOC_AB41:
-    PUSH    HL
-    PUSH    IY
-    PUSH    AF
-    PUSH    DE
-    CALL    GET_VRAM
-    POP     DE
-    PUSH    DE
-    PUSH    HL
-    PUSH    DE
-    PUSH    BC
-    LD      DE, $7200                   ; RAM $7200
-    LD      B, $20
+    PUSH    HL                              ; PUSH HL: save current sprite row pointer
+    PUSH    IY                              ; PUSH IY: save row width
+    PUSH    AF                              ; PUSH AF: save row counter
+    PUSH    DE                              ; PUSH DE: save stride
+    CALL    GET_VRAM                        ; CALL GET_VRAM: read tile bytes from VRAM
+    POP     DE                              ; POP DE: restore stride after GET_VRAM
+    PUSH    DE                              ; PUSH DE: re-save stride
+    PUSH    HL                              ; PUSH HL: save VRAM read result
+    PUSH    DE                              ; PUSH DE: save stride second time
+    PUSH    BC                              ; PUSH BC: save outer loop BC
+    LD      DE, $7200                       ; RAM $7200
+    LD      B, $20                          ; LD B,$20: B = $20 (32 bytes per sprite row)
 
 LOC_AB53:
-    LD      HL, $AB0C
+    LD      HL, $AB0C                       ; LD HL,$AB0C: HL = match table base
 
 LOC_AB56:
-    LD      A, (HL)
-    CP      $FF
-    JR      Z, LOC_AB6B
-    LD      A, (DE)
-    CP      $08
-    JR      Z, LOC_AB6B
-    CP      $00
-    JR      Z, LOC_AB6B
-    CP      (HL)
-    JR      Z, LOC_AB21
-    INC     HL
-    INC     HL
-    JR      LOC_AB56
+    LD      A, (HL)                         ; LD A,(HL): A = match table entry byte
+    CP      $FF                             ; CP $FF: end of match table?
+    JR      Z, LOC_AB6B                     ; JR Z,LOC_AB6B: yes -> no match, next byte
+    LD      A, (DE)                         ; LD A,(DE): A = sprite data byte
+    CP      $08                             ; CP $08: sprite byte = $08 (blank)?
+    JR      Z, LOC_AB6B                     ; JR Z,LOC_AB6B: blank -> skip
+    CP      $00                             ; CP $00: sprite byte = $00 (empty)?
+    JR      Z, LOC_AB6B                     ; JR Z,LOC_AB6B: empty -> skip
+    CP      (HL)                            ; CP (HL): sprite byte matches table entry?
+    JR      Z, LOC_AB21                     ; JR Z,LOC_AB21: match -> do replacement
+    INC     HL                              ; INC HL: advance match table pointer
+    INC     HL                              ; INC HL: skip replacement byte too
+    JR      LOC_AB56                        ; JR LOC_AB56: check next table entry
 
 LOC_AB6B:
-    INC     DE
-    DJNZ    LOC_AB53
-    POP     BC
-    POP     DE
-    POP     HL
-    LD      A, ($7002)                  ; RAM $7002
-    DEC     A
-    LD      ($7002), A                  ; RAM $7002
-    CP      $00
-    JR      Z, LOC_ABA6
-    LD      BC, $2001
-    LD      HL, $7200                   ; RAM $7200
-    PUSH    DE
-    LD      B, $20
-    DB      $EB
-    LD      HL, $729F                   ; RAM $729F
+    INC     DE                              ; INC DE: advance sprite data pointer
+    DJNZ    LOC_AB53                        ; DJNZ LOC_AB53: loop 32 bytes per row
+    POP     BC                              ; POP BC: restore outer loop BC
+    POP     DE                              ; POP DE: restore stride
+    POP     HL                              ; POP HL: restore sprite row pointer
+    LD      A, ($7002)                      ; RAM $7002
+    DEC     A                               ; DEC A: decrement row counter
+    LD      ($7002), A                      ; RAM $7002
+    CP      $00                             ; CP $00: all rows done?
+    JR      Z, LOC_ABA6                     ; JR Z,LOC_ABA6: yes -> finish
+    LD      BC, $2001                       ; LD BC,$2001: BC = $2001 (stride params)
+    LD      HL, $7200                       ; RAM $7200
+    PUSH    DE                              ; PUSH DE: save stride
+    LD      B, $20                          ; LD B,$20: B = $20 (32 bytes per copy)
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    LD      HL, $729F                       ; RAM $729F
 
 LOC_AB89:
-    LD      A, (DE)
-    LD      (HL), A
-    DEC     HL
-    INC     DE
-    DJNZ    LOC_AB89
-    POP     DE
-    LD      BC, $0120
-    LD      HL, $7280                   ; RAM $7280
-    CALL    SUB_AEA7
-    POP     HL
-    LD      BC, $0020
-    ADD     HL, BC
-    PUSH    HL
-    POP     DE
-    POP     AF
-    POP     IY
-    POP     HL
-    JR      LOC_AB41
+    LD      A, (DE)                         ; LD A,(DE): A = sprite byte
+    LD      (HL), A                         ; LD (HL),A: store to reversed buffer at $729F
+    DEC     HL                              ; DEC HL: step backwards in dest buffer
+    INC     DE                              ; INC DE: advance source pointer
+    DJNZ    LOC_AB89                        ; DJNZ LOC_AB89: copy 32 bytes reversed
+    POP     DE                              ; POP DE: restore stride
+    LD      BC, $0120                       ; LD BC,$0120: BC = 1 row, $20 = 32 cols
+    LD      HL, $7280                       ; RAM $7280
+    CALL    SUB_AEA7                        ; CALL SUB_AEA7: write reversed sprite row
+    POP     HL                              ; POP HL: restore sprite row pointer
+    LD      BC, $0020                       ; LD BC,$0020: BC = $0020 (row advance)
+    ADD     HL, BC                          ; ADD HL,BC: advance HL by one sprite row
+    PUSH    HL                              ; PUSH HL: save advanced pointer
+    POP     DE                              ; POP DE: DE = advanced pointer
+    POP     AF                              ; POP AF: restore row counter
+    POP     IY                              ; POP IY: restore row width
+    POP     HL                              ; POP HL: restore sprite pointer
+    JR      LOC_AB41                        ; JR LOC_AB41: loop for next sprite row
 
 LOC_ABA6:
-    POP     DE
-    POP     AF
-    POP     IY
-    POP     HL
-    POP     AF
-    POP     BC
-    POP     DE
-    POP     HL
-    CALL    SUB_A8C3
-    RET     
-    DB      $FD, $FE, $FE, $FE, $FE, $FE, $FE, $FF
-    DB      $FF, $FF, $FF, $FF, $FF, $FF, $00, $FF
-    DB      $00, $FF, $00, $FF, $00, $FF, $00, $FF
-    DB      $00, $FF, $00, $00, $00, $00, $00, $00
-    DB      $01, $00, $01, $00, $01, $00, $01, $00
-    DB      $01, $00, $01, $00, $01, $01, $01, $01
-    DB      $01, $01, $01, $02, $02, $02, $02, $02
-    DB      $02, $03, $0E, $08, $DD, $E1, $E3, $23
-    DB      $7E, $E6, $0F, $FE, $08, $30, $02, $0E
-    DB      $00, $7E, $E6, $F0, $81, $77, $2B, $E3
-    DB      $DD, $E5, $C9, $E5, $D5, $C5, $21, $B2
-    DB      $71, $E5, $D1, $13, $36, $FF, $01, $06
-    DB      $00, $ED, $B0, $C1, $D1, $E1, $C9
+    POP     DE                              ; POP DE: restore DE from inner loop
+    POP     AF                              ; POP AF: restore AF from inner loop
+    POP     IY                              ; POP IY: restore IY from inner loop
+    POP     HL                              ; POP HL: restore HL from inner loop
+    POP     AF                              ; POP AF: restore original caller AF
+    POP     BC                              ; POP BC: restore original BC
+    POP     DE                              ; POP DE: restore original DE
+    POP     HL                              ; POP HL: restore original HL
+    CALL    SUB_A8C3                        ; CALL SUB_A8C3: VRAM-lock exit
+    RET                                     ; RET: return from SUB_AB29
+    DB      $FD, $FE, $FE, $FE, $FE, $FE, $FE, $FF ; sprite transform table: input match bytes (start)
+    DB      $FF, $FF, $FF, $FF, $FF, $FF, $00, $FF ; sprite transform table: match/replace pairs
+    DB      $00, $FF, $00, $FF, $00, $FF, $00, $FF ; sprite transform table: sentinel $00 + replace pairs
+    DB      $00, $FF, $00, $00, $00, $00, $00, $00 ; sprite transform: inline Z80 POP IY / LD A,A ...
+    DB      $01, $00, $01, $00, $01, $00, $01, $00 ; sprite transform: inline Z80 LD A,(HL) / AND $0F ...
+    DB      $01, $00, $01, $00, $01, $01, $01, $01 ; sprite transform: inline Z80 continued ...
+    DB      $01, $01, $01, $02, $02, $02, $02, $02 ; sprite transform: inline Z80 PUSH DE+HL / LD HL,$71B2
+    DB      $02, $03, $0E, $08, $DD, $E1, $E3, $23 ; sprite transform: inline Z80 PUSH HL / POP DE ...
+    DB      $7E, $E6, $0F, $FE, $08, $30, $02, $0E ; sprite transform: inline Z80 LD BC,$0600 / LDIR ...
+    DB      $00, $7E, $E6, $F0, $81, $77, $2B, $E3 ; sprite transform: inline Z80 tail POP+RET
+    DB      $DD, $E5, $C9, $E5, $D5, $C5, $21, $B2 ; sprite transform: inline Z80 tail continued
+    DB      $71, $E5, $D1, $13, $36, $FF, $01, $06 ; sprite transform: inline Z80 continued
+    DB      $00, $ED, $B0, $C1, $D1, $E1, $C9 ; sprite transform: end of sprite transform inline data
 
 SUB_AC1A:
     PUSH    AF                              ; PUSH AF
@@ -2932,11 +2932,11 @@ LOC_AC26:                                   ; LOC_AC26:
     LD      ($7033), A                      ; ($7033) = $00: clear note index
 
 LOC_AC55:
-    POP     BC
-    POP     DE
-    POP     HL
-    POP     AF
-    RET     
+    POP     BC                              ; POP BC: restore BC (sound driver)
+    POP     DE                              ; POP DE: restore DE
+    POP     HL                              ; POP HL: restore HL
+    POP     AF                              ; POP AF: restore AF
+    RET                                     ; RET: return from sound init routine
 
 LOC_AC5A:
     LD      A, ($702D)                      ; A = ($702D) currently playing sound ID
@@ -2944,9 +2944,9 @@ LOC_AC5A:
     JR      C, LOC_AC55                     ; JR C, LOC_AC55: requested < current -> lower priority, ignore
     JR      NZ, LOC_AC6A                    ; JR NZ, LOC_AC6A: different ID -> override
     CP      $09                             ; CP $09: ID == 9 (special: non-interruptible)?
-    JR      Z, LOC_AC55                     ; JR Z, LOC_AC55: ID 9 -> don't interrupt
+    JR      Z, LOC_AC55                     ; JR Z, LOC_AC55: ID 9 -> dont interrupt
     CP      $01                             ; CP $01: ID == 1?
-    JR      Z, LOC_AC55                     ; JR Z, LOC_AC55: ID 1 -> don't interrupt
+    JR      Z, LOC_AC55                     ; JR Z, LOC_AC55: ID 1 -> dont interrupt
 
 LOC_AC6A:                                   ; LOC_AC6A:
     LD      A, B                            ; A = B (use new sound ID)
@@ -3049,37 +3049,37 @@ LOC_AD06:
     XOR     A                               ; A = $00
     LD      ($7033), A                      ; ($7033) = $00: clear note index (sequence complete)
     RET                                     ; RET
-    DB      $6D, $AD, $3A, $AD, $1F, $AD, $8C, $AD
-    DB      $E0, $AD, $C5, $AD, $9C, $AD, $D2, $AD
-    DB      $EB, $AD, $BD, $AD, $04, $02, $F1, $1F
-    DB      $3C, $60, $01, $01, $3C, $60, $01, $01
-    DB      $3C, $60, $01, $01, $2D, $48, $01, $01
-    DB      $01, $01, $01, $01, $24, $3C, $00, $08
-    DB      $02, $F0, $0F, $04, $AB, $2B, $72, $02
-    DB      $55, $39, $87, $22, $55, $1D, $44, $33
-    DB      $AB, $2B, $72, $22, $55, $39, $87, $22
-    DB      $55, $1D, $44, $2B, $72, $1D, $55, $15
-    DB      $39, $39, $87, $22, $55, $2D, $44, $2B
-    DB      $72, $1D, $55, $1A, $39, $18, $40, $15
-    DB      $44, $00, $05, $02, $F1, $1F, $30, $39
+    DB      $6D, $AD, $3A, $AD, $1F, $AD, $8C, $AD ; sound sequence ptr table: lo/hi ptrs into $AD__ data
+    DB      $E0, $AD, $C5, $AD, $9C, $AD, $D2, $AD ; sound sequence ptr table: continued
+    DB      $EB, $AD, $BD, $AD, $04, $02, $F1, $1F ; sound sequence ptr table: end + sound data header
+    DB      $3C, $60, $01, $01, $3C, $60, $01, $01 ; sound data: note sequence 0 (start) freq+dur pairs
+    DB      $3C, $60, $01, $01, $2D, $48, $01, $01 ; sound data: note sequence 0 continued
+    DB      $01, $01, $01, $01, $24, $3C, $00, $08 ; sound data: note sequence 0 continued
+    DB      $02, $F0, $0F, $04, $AB, $2B, $72, $02 ; sound data: note sequence 0 continued
+    DB      $55, $39, $87, $22, $55, $1D, $44, $33 ; sound data: note sequence 0 end + seq 1 header
+    DB      $AB, $2B, $72, $22, $55, $39, $87, $22 ; sound data: note sequence 1 (title / attract theme)
+    DB      $55, $1D, $44, $2B, $72, $1D, $55, $15 ; sound data: note sequence 1 continued
+    DB      $39, $39, $87, $22, $55, $2D, $44, $2B ; sound data: note sequence 1 continued
+    DB      $72, $1D, $55, $1A, $39, $18, $40, $15 ; sound data: note sequence 1 end + seq 2 header
+    DB      $44, $00, $05, $02, $F1, $1F, $30, $39 ; sound data: note sequence 2 (frequency ramp up)
     DB      $30, $39, $2B, $36, $30, $39, $30, $39 ; "09+60909"
-    DB      $2B, $36, $30, $39, $01, $01, $01, $01
-    DB      $1D, $24, $01, $01, $01, $01, $24, $39
-    DB      $00, $01, $01, $F1, $FF, $9F, $3C, $42
-    DB      $4F, $53, $56, $5F, $67, $71, $78, $86
-    DB      $00, $01, $01, $F2, $FF, $5A, $5D, $5E
+    DB      $2B, $36, $30, $39, $01, $01, $01, $01 ; sound data: note seq 2 ramp continued
+    DB      $1D, $24, $01, $01, $01, $01, $24, $39 ; sound data: note seq 2 ramp continued
+    DB      $00, $01, $01, $F1, $FF, $9F, $3C, $42 ; sound data: note seq 2 end + seq 3 header
+    DB      $4F, $53, $56, $5F, $67, $71, $78, $86 ; sound data: note seq 3 (pickup / coin SFX)
+    DB      $00, $01, $01, $F2, $FF, $5A, $5D, $5E ; sound data: note seq 3 continued
     DB      $5F, $61, $63, $65, $67, $68, $69, $6B ; "_aceghik"
     DB      $6D, $6F, $72, $74, $75, $77, $7A, $7B ; "mortuwz{"
-    DB      $7D, $80, $82, $84, $86, $88, $8A, $8B
-    DB      $8D, $00, $01, $05, $2F, $FF, $C0, $FE
-    DB      $01, $00, $03, $05, $0F, $FF, $87, $F8
-    DB      $89, $94, $84, $75, $10, $80, $00, $01
-    DB      $01, $F2, $FF, $73, $6E, $69, $64, $5F
-    DB      $5A, $55, $50, $4B, $00, $01, $05, $0F
-    DB      $FF, $C0, $C0, $01, $C0, $C0, $01, $00
-    DB      $01, $01, $F1, $FF, $9F, $01, $01, $01
-    DB      $10, $10, $C0, $10, $10, $01, $01, $01
-    DB      $01, $01, $01, $10, $00
+    DB      $7D, $80, $82, $84, $86, $88, $8A, $8B ; sound data: note seq 3 continued
+    DB      $8D, $00, $01, $05, $2F, $FF, $C0, $FE ; sound data: note seq 3 end + seq 4 header
+    DB      $01, $00, $03, $05, $0F, $FF, $87, $F8 ; sound data: note seq 4 (death / fall SFX)
+    DB      $89, $94, $84, $75, $10, $80, $00, $01 ; sound data: note seq 4 continued
+    DB      $01, $F2, $FF, $73, $6E, $69, $64, $5F ; sound data: note seq 4 continued
+    DB      $5A, $55, $50, $4B, $00, $01, $05, $0F ; sound data: note seq 5 header
+    DB      $FF, $C0, $C0, $01, $C0, $C0, $01, $00 ; sound data: note seq 5 (door open SFX) continued
+    DB      $01, $01, $F1, $FF, $9F, $01, $01, $01 ; sound data: note seq 5 continued
+    DB      $10, $10, $C0, $10, $10, $01, $01, $01 ; sound data: note seq 5 continued
+    DB      $01, $01, $01, $10, $00         ; sound data: note seq 5 end
 
 SUB_AE00:
     POP     HL                              ; POP HL: return address -> HL (inline data pointer)
@@ -3120,49 +3120,49 @@ SUB_AE25:
     CALL    SUB_A8B7                        ; CALL SUB_A8B7: SET bit 1 $705F + INC $70AF (VRAM-lock enter)
     CALL    FILL_VRAM                       ; CALL FILL_VRAM: fill DE bytes at VRAM address HL with A
     JR      LOC_AE34                        ; JR LOC_AE34
-    DB      $C9
+    DB      $C9                             ; DB $C9: RET opcode trailing SUB_AE25 (pad/align)
 
 SUB_AE2E:
     CALL    SUB_A8B7                        ; CALL SUB_A8B7: SET bit 1 $705F + INC $70AF (VRAM-lock enter)
     CALL    PUT_VRAM                        ; CALL PUT_VRAM: copy IY bytes from HL to VRAM at DE
-                                            ; LOC_AE34:
+
 LOC_AE34:
-    CALL    SUB_A8C3
-    RET     
-    DB      $DD, $E9
+    CALL    SUB_A8C3                        ; CALL SUB_A8C3: VRAM-lock exit
+    RET                                     ; RET: return from LOC_AE34
+    DB      $DD, $E9                        ; DB $DD,$E9: indirect jump pad after SUB_AE2E
 
 SUB_AE3A:
-    JP      (HL)
-    DB      $7E, $32, $13, $70, $23, $7E, $F5, $23; JP (HL): indirect jump via HL
-    DB      $E5, $DD, $E1, $26, $00, $DD, $6E, $01
-    DB      $54, $DD, $5E, $00, $7B, $FE, $FF, $28
-    DB      $21, $01, $01, $00, $F1, $F5, $08, $DD
-    DB      $E5, $3A, $13, $70, $FE, $00, $20, $06
-    DB      $08, $CD, $6D, $1F, $18, $04, $08, $CD
-    DB      $6A, $1F, $DD, $E1, $DD, $23, $DD, $23
-    DB      $18, $D1, $F1, $C9
+    JP      (HL)                            ; JP (HL): indirect jump to object handler
+    DB      $7E, $32, $13, $70, $23, $7E, $F5, $23 ; JP (HL): indirect jump via HL
+    DB      $E5, $DD, $E1, $26, $00, $DD, $6E, $01 ; inline Z80: LD A,(HL) / LD ($7013) / INC HL ...
+    DB      $54, $DD, $5E, $00, $7B, $FE, $FF, $28 ; inline Z80: PUSH AF / PUSH IX / POP HL / LD H,$00 ...
+    DB      $21, $01, $01, $00, $F1, $F5, $08, $DD ; inline Z80: LD L,(IX+1) / LD D,H / LD E,(IX+0) ...
+    DB      $E5, $3A, $13, $70, $FE, $00, $20, $06 ; inline Z80: LD A,C / CP $FF / JR Z / LD BC,$0001 ...
+    DB      $08, $CD, $6D, $1F, $18, $04, $08, $CD ; inline Z80: POP AF / PUSH AF / EX AF / PUSH IX ...
+    DB      $6A, $1F, $DD, $E1, $DD, $23, $DD, $23 ; inline Z80: LD A,($7013) / CP $00 / JR NZ / EX AF ...
+    DB      $18, $D1, $F1, $C9              ; inline Z80: CALL $1F6D / JR / EX AF / CALL $1F6A ...
 
 SUB_AE77:
     CALL    SUB_A8B7                        ; CALL SUB_A8B7: VRAM-lock enter
     LD      HL, $70B3                       ; INC ($70B3): increment blank-display nesting counter
     INC     (HL)                            ; CALL WRITE_REGISTER ($0182): disable VDP display
-    LD      BC, $0182
-    JR      LOC_AE91
+    LD      BC, $0182                       ; LD BC,$0182: BC = $0182 (VDP reg 1, blank)
+    JR      LOC_AE91                        ; JR LOC_AE91: jump to WRITE_REGISTER tail
 
 SUB_AE83:
     CALL    SUB_A8C3                        ; CALL SUB_A8C3: VRAM-lock exit (DEC $70AF)
     LD      HL, $70B3                       ; DEC ($70B3): decrement blank-display nesting counter
     DEC     (HL)                            ; JR NZ: still nested -> keep display off
     LD      A, (HL)                         ; CALL WRITE_REGISTER ($01E2): re-enable VDP display + sprites
-    CP      $00
-    RET     NZ
-    LD      BC, $01E2
+    CP      $00                             ; CP $00: blank nesting count = 0?
+    RET     NZ                              ; RET NZ: still nested -> keep display off
+    LD      BC, $01E2                       ; LD BC,$01E2: BC = $01E2 (VDP reg 1, enable)
 
 LOC_AE91:
-    JP      WRITE_REGISTER
-    DB      $C5, $D5, $F5, $06, $FF, $11, $FF, $00
-    DB      $1B, $7A, $B3, $20, $FB, $10, $F6, $F1
-    DB      $D1, $C1, $C9
+    JP      WRITE_REGISTER                  ; JP WRITE_REGISTER: tail-call to VDP write
+    DB      $C5, $D5, $F5, $06, $FF, $11, $FF, $00 ; inline Z80: PUSH BC+DE+AF / LD B,$FF / LD DE,$00FF
+    DB      $1B, $7A, $B3, $20, $FB, $10, $F6, $F1 ; inline Z80: DEC DE / LD A,D / OR E / JR NZ ...
+    DB      $D1, $C1, $C9                   ; inline Z80: DJNZ / POP AF+DE+BC / RET
 
 SUB_AEA7:
     PUSH    IX                              ; PUSH IX
@@ -3173,64 +3173,64 @@ SUB_AEA7:
     CALL    SUB_A8B7                        ; CALL SUB_A8B7: VRAM-lock enter
     LD      B, $00                          ; LD IY from BC: IY = stride (via register rename)
     PUSH    BC                              ; LOC_AEB8: -- tile write loop
-    POP     IY
-    POP     BC
-    LD      C, $00
+    POP     IY                              ; POP IY: IY = stride from BC
+    POP     BC                              ; POP BC: BC = original tile block params
+    LD      C, $00                          ; LD C,$00: C = $00 (row column counter)
 
 LOC_AEB8:
-    LD      A, $02
-    PUSH    BC
-    PUSH    HL
-    PUSH    DE
-    PUSH    IY
-    PUSH    AF
-    LD      A, (WORK_BUFFER)            ; WORK_BUFFER
-    BIT     4, A
+    LD      A, $02                          ; LD A,$02: A = $02 (mode for AE2E/GET_VRAM)
+    PUSH    BC                              ; PUSH BC: save tile block params
+    PUSH    HL                              ; PUSH HL: save VRAM dest
+    PUSH    DE                              ; PUSH DE: save source pointer
+    PUSH    IY                              ; PUSH IY: save stride
+    PUSH    AF                              ; PUSH AF: save mode byte
+    LD      A, (WORK_BUFFER)                ; WORK_BUFFER
+    BIT     4, A                            ; BIT 4,A: WORK_BUFFER bit 4 = read-back mode?
     JR      Z, LOC_AECD                     ; JR Z, LOC_AECD: bit 4 of WORK_BUFFER clear -> write mode
-    POP     AF
+    POP     AF                              ; POP AF: restore mode (read-back branch)
     CALL    GET_VRAM                        ; CALL GET_VRAM: read tile from VRAM (read mode)
-    JR      LOC_AED1
+    JR      LOC_AED1                        ; JR LOC_AED1: skip write, go to advance
 
 LOC_AECD:                                   ; LOC_AECD:
-    POP     AF
+    POP     AF                              ; POP AF: restore mode (write branch)
     CALL    SUB_AE2E                        ; CALL SUB_AE2E: write tile block to VRAM (write mode)
 
 LOC_AED1:
-    POP     BC
-    POP     DE
-    PUSH    BC
-    LD      A, (WORK_BUFFER)            ; WORK_BUFFER
+    POP     BC                              ; POP BC: restore tile params
+    POP     DE                              ; POP DE: restore source pointer
+    PUSH    BC                              ; PUSH BC: re-save for stride add below
+    LD      A, (WORK_BUFFER)                ; WORK_BUFFER
     BIT     2, A                            ; BIT 2, A: stride-double flag (WORK_BUFFER bit 2)?
     JR      Z, LOC_AEDE                     ; JR Z, LOC_AEDE: single stride
     LD      BC, $0020                       ; BC = $0020 (double stride = 32 bytes)
 
 LOC_AEDE:
-    DB      $EB
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
     ADD     HL, BC                          ; ADD HL, BC: advance HL by stride
-    DB      $EB
-    POP     IY
-    BIT     4, A
-    JR      Z, LOC_AEEA
-    POP     BC
-    JR      LOC_AEF2
+    DB      $EB                             ; DB $EB: EX DE,HL opcode (mid-routine literal byte)
+    POP     IY                              ; POP IY: pop IY stride
+    BIT     4, A                            ; BIT 4,A: read-back mode flag in A?
+    JR      Z, LOC_AEEA                     ; JR Z,LOC_AEEA: no -> source advance branch
+    POP     BC                              ; POP BC: pop BC (read-back path)
+    JR      LOC_AEF2                        ; JR LOC_AEF2: skip source advance
 
 LOC_AEEA:
-    POP     HL
-    BIT     3, A
-    JR      Z, LOC_AEF2
-    INC     HL
-    DEC     DE
-    DEC     DE
+    POP     HL                              ; POP HL: pop HL (source pointer)
+    BIT     3, A                            ; BIT 3,A: WORK_BUFFER bit 3 = reverse mode?
+    JR      Z, LOC_AEF2                     ; JR Z,LOC_AEF2: no -> skip reverse adjust
+    INC     HL                              ; INC HL: advance source for reverse mode
+    DEC     DE                              ; DEC DE: decrement DE for reverse mode
+    DEC     DE                              ; DEC DE: decrement DE second step
 
 LOC_AEF2:
-    POP     BC
+    POP     BC                              ; POP BC: restore outer BC counter
     DJNZ    LOC_AEB8                        ; DJNZ LOC_AEB8: loop B times
-    POP     DE
+    POP     DE                              ; POP DE: restore outer DE
     POP     HL                              ; POP HL
     POP     BC                              ; POP BC
     POP     IX                              ; POP IX
     CALL    SUB_A8C3                        ; CALL SUB_A8C3: VRAM-lock exit
-    RET     
+    RET                                     ; RET: return from SUB_AEA7
 
 SUB_AEFE:
     PUSH    HL                              ; PUSH HL
@@ -3254,11 +3254,11 @@ SUB_AEFE:
     ADD     A, $28                          ; ADD A, $28
     CALL    SUB_AF66                        ; CALL SUB_AF66: write second score digit block
     CALL    SUB_A8C3                        ; CALL SUB_A8C3: VRAM-lock exit
-    POP     AF
-    POP     DE
-    POP     BC
-    POP     HL
-    RET     
+    POP     AF                              ; POP AF: restore AF
+    POP     DE                              ; POP DE: restore DE
+    POP     BC                              ; POP BC: restore BC
+    POP     HL                              ; POP HL: restore HL
+    RET                                     ; RET: return from SUB_AEFE
 
 DELAY_LOOP_AF32:
     LD      B, $03                          ; B = $03 (3 BCD bytes per row)
@@ -3291,13 +3291,13 @@ SUB_AF54:
     JR      NZ, LOC_AF62                    ; JR NZ, LOC_AF62: nonzero -> render digit
     BIT     0, (HL)                         ; BIT 0, (HL): leading-zero suppress flag
     JR      Z, LOC_AF65                     ; JR Z, LOC_AF65: suppress -> skip (blank tile)
-                                            ; LOC_AF62:
+
 LOC_AF62:                                   ; ADD A, C: digit + base tile offset
     ADD     A, C                            ; SET 0, (HL): clear leading-zero flag (digit rendered)
-    SET     0, (HL)
+    SET     0, (HL)                         ; SET 0,(HL): set leading-zero suppress flag
 
 LOC_AF65:
-    POP     HL
+    POP     HL                              ; POP HL: restore HL after digit write
 
 SUB_AF66:
     PUSH    DE                              ; PUSH DE
@@ -3305,7 +3305,7 @@ SUB_AF66:
     CALL    SUB_AE25                        ; CALL SUB_AE25: write one score tile to VRAM
     INC     HL                              ; INC HL: advance VRAM address
     POP     DE                              ; POP DE
-    RET     
+    RET                                     ; RET: return from SUB_AF66
 
 SUB_AF70:
     PUSH    IX                              ; PUSH IX
@@ -3317,11 +3317,11 @@ SUB_AF70:
     CALL    SUB_AF89                        ; CALL SUB_AF89: add A to $7017 (BCD units)
     LD      A, H                            ; A = H (hi byte of score increment)
     CALL    SUB_AF96                        ; CALL SUB_AF96: add H to $7016 (BCD tens/hundreds)
-    POP     HL
-    POP     AF
-    POP     IY
-    POP     IX
-    RET     
+    POP     HL                              ; POP HL: restore HL
+    POP     AF                              ; POP AF: restore AF
+    POP     IY                              ; POP IY: restore IY
+    POP     IX                              ; POP IX: restore IX
+    RET                                     ; RET: return from SUB_AF70
 
 SUB_AF89:
     SCF                                     ; SCF
@@ -3365,14 +3365,14 @@ LOC_AFB2:                                   ; LOC_AFB2:
     CALL    SUB_AC1A                        ; CALL SUB_AC1A: trigger score-chime sound ($00)
 
 LOC_AFC7:
-    RET     
-    DB      $CB, $0F, $CB, $8C, $30, $02, $CB, $CC
-    DB      $CB, $0F, $30, $02, $CB, $CC, $CB, $0F
-    DB      $30, $02, $CB, $CC, $E6, $1F, $CB, $4C
-    DB      $C8, $3C, $C9, $CD, $C8, $AF, $4F, $78
-    DB      $CD, $C8, $AF, $E6, $1F, $06, $00, $21
-    DB      $00, $00, $11, $20, $00, $3D, $FE, $00
-    DB      $28, $03, $19, $18, $F8, $09, $C9, $FB
+    RET                                     ; RET: return from extra-life routine
+    DB      $CB, $0F, $CB, $8C, $30, $02, $CB, $CC ; inline Z80: RRC A / RES 1,(IY+0) / JR NC ...
+    DB      $CB, $0F, $30, $02, $CB, $CC, $CB, $0F ; inline Z80: RRC A / JR NC (x2) / RES 1,(IY+0) ...
+    DB      $30, $02, $CB, $CC, $E6, $1F, $CB, $4C ; inline Z80: AND $1F / BIT 1,(IY+0) / RET Z / INC A ...
+    DB      $C8, $3C, $C9, $CD, $C8, $AF, $4F, $78 ; inline Z80: RET / CALL $AFC8 / LD C,A / LD A,B ...
+    DB      $CD, $C8, $AF, $E6, $1F, $06, $00, $21 ; inline Z80: CALL $AFC8 / AND $1F / LD B,$00 ...
+    DB      $00, $00, $11, $20, $00, $3D, $FE, $00 ; inline Z80: LD HL,$0000 / LD DE,$0020 / DEC A ...
+    DB      $28, $03, $19, $18, $F8, $09, $C9, $FB ; inline Z80: CP $00 / JR Z / ADD HL,DE / JR ...
 
 ; ---- mid-instruction label aliases (EQU) ----
 LOC_801D:        EQU $801D
