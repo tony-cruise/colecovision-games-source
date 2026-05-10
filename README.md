@@ -20,6 +20,7 @@ The games that have been included in the repository so far are:
 - [Centipede](/games/Centipede/README.md)
 - [Choplifter](/games/Choplifter/README.md)
 - [Defender](/games/Defender/README.md)
+- [Donkey Kong](/games/Donkey%20Kong/README.md)
 - [Frenzy](/games/Frenzy/README.md)
 - [Gateway to Apshai](/games/Gateway%20To%20Apshai/README.md)
 - [H.E.R.O.](/games/H.E.R.O/README.md)
